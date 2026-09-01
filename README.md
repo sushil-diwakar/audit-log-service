@@ -1,6 +1,6 @@
 # AI-Assisted Software Engineering System — Audit Log Service
 
-A tamper-evident, append-only audit log service backend prototype built with **Java 21** and **Spring Boot 3.x**.
+A tamper-evident, append-only audit log service backend prototype built with **Java 21**, **Spring Boot 3.x**, and **MySQL 8**.
 
 ## Project Purpose
 
@@ -11,7 +11,7 @@ The primary objective of this service is to provide an immutable, cryptographica
 - **Runtime & Language**: Java 21 LTS
 - **Framework**: Spring Boot 3.3.3
 - **Data Persistence**: Spring Data JPA / Hibernate
-- **Database**: MySQL 8
+- **Database**: MySQL 8 (local installation; no Docker)
 - **Validation**: Jakarta Bean Validation API
 - **API Documentation**: Springdoc OpenAPI 2.x (Swagger UI)
 - **Utilities**: Project Lombok
@@ -32,58 +32,71 @@ com.example.auditlog
 └── util          # Helper utilities (hashing, canonicalization, etc.)
 ```
 
-## Local Setup & Getting Started
+## Local Setup & Configuration
 
 ### Prerequisites
 - **Java Development Kit (JDK)** 21 installed and configured on your `PATH`.
-- **Apache Maven** 3.9+ installed (or use standard Maven CLI).
-- **MySQL Server** 8.x running locally or reachable via network.
+- **Apache Maven** 3.9+ installed.
+- **MySQL 8 Server** installed and running locally on `localhost:3306`.
 
-### Environment Configuration
+### Database Preparation
 
-The application reads configuration dynamically from environment variables. No credentials are hardcoded.
-
-| Environment Variable | Description | Default Value |
-| :--- | :--- | :--- |
-| `DB_URL` | Full JDBC database connection URL | `jdbc:mysql://localhost:3306/audit_log_db?...` |
-| `DB_HOST` | MySQL hostname (if `DB_URL` not set) | `localhost` |
-| `DB_PORT` | MySQL port (if `DB_URL` not set) | `3306` |
-| `DB_NAME` | MySQL database name | `audit_log_db` |
-| `DB_USERNAME` | MySQL database username | `root` |
-| `DB_PASSWORD` | MySQL database password | *(empty)* |
-| `PORT` | Application HTTP server port | `8080` |
-| `JPA_DDL_AUTO` | Hibernate DDL auto-generation mode | `update` |
-| `SHOW_SQL` | Log SQL queries to stdout | `false` |
-
-### Database Initialization
-
-Create a database in your local MySQL instance:
+Ensure the target database exists in your local MySQL instance:
 
 ```sql
-CREATE DATABASE IF NOT EXISTS audit_log_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE IF NOT EXISTS auditdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-### Build & Run
+### Environment Variables
 
-1. **Compile & Package**:
+Database credentials and host parameters are supplied securely via environment variables. Never commit actual passwords to version control.
+
+| Environment Variable | Description | Default / Example Value | Required |
+| :--- | :--- | :--- | :--- |
+| `DB_USERNAME` | Local MySQL username | `your_mysql_username` (e.g., `root`) | **Yes** |
+| `DB_PASSWORD` | Local MySQL password | `your_mysql_password` | **Yes** |
+| `DB_HOST` | MySQL server host | `localhost` | No |
+| `DB_PORT` | MySQL server port | `3306` | No |
+| `DB_NAME` | MySQL database name | `auditdb` | No |
+| `DB_URL` | Override full JDBC URL | *(Derived from host/port/name)* | No |
+| `PORT` | Application HTTP server port | `8080` | No |
+| `JPA_DDL_AUTO` | Hibernate DDL mode | `update` | No |
+| `SHOW_SQL` | Log SQL queries | `false` | No |
+
+### Setting Environment Variables Locally
+
+#### Windows (PowerShell)
+```powershell
+$env:DB_USERNAME="<your_username>"
+$env:DB_PASSWORD="<your_password>"
+```
+
+#### Windows (Command Prompt)
+```cmd
+set DB_USERNAME=<your_username>
+set DB_PASSWORD=<your_password>
+```
+
+#### macOS / Linux (Bash / Zsh)
+```bash
+export DB_USERNAME="<your_username>"
+export DB_PASSWORD="<your_password>"
+```
+
+---
+
+## Build & Run
+
+1. **Compile and Run Tests** (verifies local MySQL connectivity):
    ```bash
-   mvn clean package
+   mvn clean test
    ```
 
-2. **Run Tests**:
+2. **Run Application**:
    ```bash
-   mvn test
-   ```
-
-3. **Run Application**:
-   ```bash
-   # Using Maven
    mvn spring-boot:run
-
-   # Or execute the packaged JAR
-   java -jar target/audit-log-service-0.0.1-SNAPSHOT.jar
    ```
 
-4. **Access API Documentation (Swagger UI)**:
+3. **Access API Documentation (Swagger UI)**:
    Once the application is running, open:
    [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)

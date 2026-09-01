@@ -2,26 +2,30 @@ spring:
   application:
     name: audit-log-service
 
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
-
-  # MySQL DataSource & JPA Configuration (to be activated when DB is connected)
   datasource:
-    url: ${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:audit_log_db}?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:auditdb}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: AuditLogHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
 
   jpa:
+    database: mysql
     hibernate:
       ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: ${SHOW_SQL:false}
+    open-in-view: false
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          time_zone: UTC
 
 server:
   port: ${PORT:8080}
