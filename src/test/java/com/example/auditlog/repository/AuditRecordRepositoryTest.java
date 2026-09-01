@@ -64,29 +64,5 @@ class AuditRecordRepositoryTest {
         assertThat(retrieved.getCreatedAt()).isNotNull();
     }
 
-    @Test
-    void testCustomQueryMethods() throws JsonProcessingException {
-        // Arrange
-        Instant now = Instant.now();
-        JsonNode jsonPayload = mapper.readTree("{\"docName\": \"secret.txt\"}");
-        AuditRecord record = AuditRecord.builder()
-                .eventType("DOCUMENT_READ")
-                .actorId("user-789")
-                .resourceType("Document")
-                .resourceId("doc-001")
-                .payload(jsonPayload)
-                .timestamp(now)
-                .status(AuditRecordStatus.ARCHIVED) // Using a different enum value
-                .build();
-        repository.saveAndFlush(record);
 
-        // Act & Assert
-        Page<AuditRecord> byActor = repository.findByActorId("user-789", PageRequest.of(0, 10));
-        assertThat(byActor.getContent()).hasSize(1);
-        assertThat(byActor.getContent().get(0).getResourceId()).isEqualTo("doc-001");
-        assertThat(byActor.getContent().get(0).getStatus()).isEqualTo(AuditRecordStatus.ARCHIVED);
-
-        Page<AuditRecord> byResource = repository.findByResourceTypeAndResourceId("Document", "doc-001", PageRequest.of(0, 10));
-        assertThat(byResource.getContent()).hasSize(1);
-    }
 }

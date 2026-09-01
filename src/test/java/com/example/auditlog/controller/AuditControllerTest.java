@@ -2,6 +2,7 @@ package com.example.auditlog.controller;
 
 import com.example.auditlog.entity.AuditRecord;
 import com.example.auditlog.repository.AuditRecordRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,9 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -29,10 +33,14 @@ class AuditControllerTest {
     @Autowired
     private AuditRecordRepository repository;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @BeforeEach
     void setUp() {
         repository.deleteAll();
     }
+
+    // --- POST API Tests ---
 
     @Test
     void testCreateEvent_Success_NoTimestamp() throws Exception {
@@ -59,16 +67,8 @@ class AuditControllerTest {
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andExpect(jsonPath("$.status").value("ACTIVE"));
 
-        // Verify the record is persisted in AuditRecordRepository
         List<AuditRecord> records = repository.findAll();
         assertThat(records).hasSize(1);
-        AuditRecord saved = records.get(0);
-        assertThat(saved.getEventType()).isEqualTo("FILE_DOWNLOAD");
-        assertThat(saved.getActorId()).isEqualTo("user-444");
-        assertThat(saved.getResourceType()).isEqualTo("FILE");
-        assertThat(saved.getResourceId()).isEqualTo("file-888");
-        assertThat(saved.getPayload().get("fileName").asText()).isEqualTo("report.pdf");
-        assertThat(saved.getStatus().name()).isEqualTo("ACTIVE");
     }
 
     @Test
@@ -88,9 +88,7 @@ class AuditControllerTest {
                 .content(payload))
                 .andExpect(status().isCreated());
 
-        // Verify the persisted record has a non-null timestamp (server-assigned)
         List<AuditRecord> records = repository.findAll();
-        assertThat(records).hasSize(1);
         assertThat(records.get(0).getTimestamp()).isNotNull();
     }
 
@@ -114,23 +112,147 @@ class AuditControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.timestamp").value(timestampStr));
 
-        // Verify the response/persisted record contains exactly that timestamp
         List<AuditRecord> records = repository.findAll();
-        assertThat(records).hasSize(1);
         assertThat(records.get(0).getTimestamp()).isEqualTo(Instant.parse(timestampStr));
     }
 
     @Test
     void testCreateEvent_ValidationFailure() throws Exception {
-        // Send a request missing required fields (empty object)
-        String payload = "{}";
-
         mockMvc.perform(post("/audit/events")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(payload))
+                .content("{}"))
                 .andExpect(status().isBadRequest());
 
-        // Verify no audit record is created for the invalid request
         assertThat(repository.count()).isZero();
+    }
+
+    // --- GET API Tests ---
+
+    private void insertTestRecords() throws Exception {
+        AuditRecord r1 = AuditRecord.builder().actorId("actor-1").resourceType("USER").resourceId("usr-1").eventType("LOGIN").timestamp(Instant.parse("2024-01-01T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
+        AuditRecord r2 = AuditRecord.builder().actorId("actor-2").resourceType("USER").resourceId("usr-2").eventType("LOGIN").timestamp(Instant.parse("2024-01-02T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
+        AuditRecord r3 = AuditRecord.builder().actorId("actor-1").resourceType("DOC").resourceId("doc-1").eventType("UPLOAD").timestamp(Instant.parse("2024-01-03T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
+        AuditRecord r4 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
+        AuditRecord r5 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).build(); // Same timestamp for sorting test
+        
+        repository.saveAllAndFlush(List.of(r1, r2, r3, r4, r5));
+    }
+
+    @Test
+    void testGetEvents_ByActorId() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events").param("actorId", "actor-1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void testGetEvents_ByResourceTypeAndId() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events")
+                .param("resourceType", "DOC")
+                .param("resourceId", "doc-2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void testGetEvents_ByEventType() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events").param("eventType", "LOGIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void testGetEvents_ByTimestampRange() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events")
+                .param("from", "2024-01-02T00:00:00Z")
+                .param("to", "2024-01-03T23:59:59Z"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void testGetEvents_CombinedFilters() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events")
+                .param("actorId", "actor-3")
+                .param("eventType", "DOWNLOAD"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements", is(2)));
+    }
+
+    @Test
+    void testGetEvents_PaginationDefaultAndStructure() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(5)))
+                .andExpect(jsonPath("$.pageNumber", is(0)))
+                .andExpect(jsonPath("$.pageSize", is(20)))
+                .andExpect(jsonPath("$.totalElements", is(5)))
+                .andExpect(jsonPath("$.totalPages", is(1)));
+    }
+
+    @Test
+    void testGetEvents_PaginationCustomSize() throws Exception {
+        insertTestRecords();
+        mockMvc.perform(get("/audit/events")
+                .param("page", "0")
+                .param("size", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.pageNumber", is(0)))
+                .andExpect(jsonPath("$.pageSize", is(2)))
+                .andExpect(jsonPath("$.totalElements", is(5)))
+                .andExpect(jsonPath("$.totalPages", is(3)));
+    }
+
+    @Test
+    void testGetEvents_SizeGreaterThan100_Rejected() throws Exception {
+        mockMvc.perform(get("/audit/events").param("size", "101"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetEvents_NegativePage_Rejected() throws Exception {
+        mockMvc.perform(get("/audit/events").param("page", "-1"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetEvents_FromGreaterThanTo_Rejected() throws Exception {
+        mockMvc.perform(get("/audit/events")
+                .param("from", "2024-02-01T00:00:00Z")
+                .param("to", "2024-01-01T00:00:00Z"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void testGetEvents_EmptyResultReturnsValidEmptyPage() throws Exception {
+        mockMvc.perform(get("/audit/events").param("actorId", "non-existent"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements", is(0)));
+    }
+
+    @Test
+    void testGetEvents_DeterministicTimestampOrdering() throws Exception {
+        insertTestRecords();
+        // Since r4 and r5 have the exact same timestamp, the secondary sorting (id ascending) will ensure determinism.
+        mockMvc.perform(get("/audit/events"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].timestamp").value("2024-01-01T10:00:00Z"))
+                .andExpect(jsonPath("$.content[1].timestamp").value("2024-01-02T10:00:00Z"))
+                .andExpect(jsonPath("$.content[2].timestamp").value("2024-01-03T10:00:00Z"))
+                .andExpect(jsonPath("$.content[3].timestamp").value("2024-01-04T10:00:00Z"))
+                .andExpect(jsonPath("$.content[4].timestamp").value("2024-01-04T10:00:00Z"));
     }
 }

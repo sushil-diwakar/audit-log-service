@@ -2,13 +2,22 @@ package com.example.auditlog.service;
 
 import com.example.auditlog.dto.AuditEventRequest;
 import com.example.auditlog.dto.AuditEventResponse;
+import com.example.auditlog.dto.PagedResponse;
 import com.example.auditlog.entity.AuditRecord;
 import com.example.auditlog.repository.AuditRecordRepository;
+import com.example.auditlog.repository.AuditRecordSpecification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -38,17 +47,62 @@ public class AuditService {
         // Save to the database and flush to ensure DB-generated fields (like createdAt) are populated
         AuditRecord savedRecord = auditRecordRepository.saveAndFlush(record);
 
-        // Map the saved entity back to the response DTO
+        return mapToResponse(savedRecord);
+    }
+
+    /**
+     * Retrieves audit events using optional filters and pagination.
+     */
+    @Transactional(readOnly = true)
+    public PagedResponse<AuditEventResponse> getAuditEvents(
+            String actorId, String resourceType, String resourceId, String eventType,
+            Instant from, Instant to, int page, int size) {
+        
+        boolean hasResourceType = resourceType != null && !resourceType.isBlank();
+        boolean hasResourceId = resourceId != null && !resourceId.isBlank();
+
+        if (hasResourceType != hasResourceId) {
+            throw new IllegalArgumentException(
+                    "resourceType and resourceId must be provided together");
+        }
+
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("'from' timestamp cannot be after 'to' timestamp");
+        }
+
+        // Deterministic ordering: primary timestamp ASC, secondary id ASC
+        Sort sort = Sort.by("timestamp").ascending().and(Sort.by("id").ascending());
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Specification<AuditRecord> spec = AuditRecordSpecification.withFilters(
+                actorId, resourceType, resourceId, eventType, from, to);
+
+        Page<AuditRecord> recordsPage = auditRecordRepository.findAll(spec, pageable);
+
+        List<AuditEventResponse> content = recordsPage.getContent().stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+
+        return PagedResponse.<AuditEventResponse>builder()
+                .content(content)
+                .pageNumber(recordsPage.getNumber())
+                .pageSize(recordsPage.getSize())
+                .totalElements(recordsPage.getTotalElements())
+                .totalPages(recordsPage.getTotalPages())
+                .build();
+    }
+
+    private AuditEventResponse mapToResponse(AuditRecord record) {
         return AuditEventResponse.builder()
-                .id(savedRecord.getId())
-                .eventType(savedRecord.getEventType())
-                .actorId(savedRecord.getActorId())
-                .resourceType(savedRecord.getResourceType())
-                .resourceId(savedRecord.getResourceId())
-                .payload(savedRecord.getPayload())
-                .timestamp(savedRecord.getTimestamp())
-                .status(savedRecord.getStatus())
-                .createdAt(savedRecord.getCreatedAt())
+                .id(record.getId())
+                .eventType(record.getEventType())
+                .actorId(record.getActorId())
+                .resourceType(record.getResourceType())
+                .resourceId(record.getResourceId())
+                .payload(record.getPayload())
+                .timestamp(record.getTimestamp())
+                .status(record.getStatus())
+                .createdAt(record.getCreatedAt())
                 .build();
     }
 }
