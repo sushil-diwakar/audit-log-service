@@ -196,3 +196,15 @@ This document tracks all AI-assisted interactions, architectural contributions, 
   - Integrated offline verification logic proving `contentHash` and `recordHash` re-calculations natively support omitted boundaries.
   - Created robust integration tests covering API layer validation, filtering correctly, and programmatic cryptographic assertion over `ARCHIVED` and `REDACTED` payloads inside the exported bundle.
   - Documented explicit mathematical limitations detailing why sparse linear hash-chains guarantee tamper-evidence but not completeness in `docs/export.md`.
+---
+
+## Log Entry 14: Regulator Access Audit (Scenario C)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Implementing Scenario C (Access Audit Documentation & E2E Test)
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Analyzed and documented the highly ambiguous regulatory requirement for tracking access to client account data in `docs/scenario-c.md`.
+  - Maintained the strict zero-architectural-change constraint by validating that the existing generic event properties (`eventType=ACCOUNT_READ`, `resourceType=CLIENT_ACCOUNT`) natively fulfilled the core ACs.
+  - Formally differentiated between **tamper-evidence** (proving cryptographic integrity of received data) and **completeness limits** (trust boundaries failing to emit data) in the documentation.
+  - Orchestrated `ScenarioCEndToEndTest.java` leveraging MockMvc to simulate the entire regulatory audit lifecycle: event ingestion, API querying, sparse bulk export, and offline independent cryptographic re-calculation of `contentHash` and `recordHash` from extracted properties.
