@@ -1,4 +1,4 @@
-# AI-Assisted Software Engineering System â€” Audit Log Service
+# AI-Assisted Software Engineering System — Audit Log Service
 
 A tamper-evident, append-only audit log service backend prototype built with **Java 21**, **Spring Boot 3.x**, and **MySQL 8**.
 
@@ -22,14 +22,14 @@ The primary objective of this service is to provide an immutable, cryptographica
 
 ```text
 com.example.auditlog
-â”œâ”€â”€ controller    # REST API endpoints & request routing
-â”œâ”€â”€ service       # Core business logic & interfaces
-â”œâ”€â”€ repository    # Spring Data JPA repositories & database access
-â”œâ”€â”€ entity        # JPA domain models / database entities
-â”œâ”€â”€ dto           # Data Transfer Objects for API requests/responses
-â”œâ”€â”€ exception     # Custom exception classes & global exception handlers
-â”œâ”€â”€ config        # Spring configurations (OpenAPI, security, etc.)
-â””â”€â”€ util          # Helper utilities (hashing, canonicalization, etc.)
+├── controller    # REST API endpoints & request routing
+├── service       # Core business logic & interfaces
+├── repository    # Spring Data JPA repositories & database access
+├── entity        # JPA domain models / database entities
+├── dto           # Data Transfer Objects for API requests/responses
+├── exception     # Custom exception classes & global exception handlers
+├── config        # Spring configurations (OpenAPI, security, etc.)
+└── util          # Helper utilities (hashing, canonicalization, etc.)
 ```
 
 ## Local Setup & Configuration
@@ -101,13 +101,17 @@ export DB_PASSWORD="<your_password>"
    Once the application is running, open:
    [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 
+   **How to Test via Swagger UI:**
+   - **When using the dev profile:** The Swagger UI loads without credentials. When you click **Try it out** and **Execute** on any protected endpoint (like /audit/events), your web browser will intercept the 401 Unauthorized response and present a native pop-up prompting for a Username and Password. Enter admin / admin (or your configured DEV_USER / DEV_PASSWORD) to execute the request.
+   - **When using the prod profile:** Swagger UI does not natively prompt for OIDC Bearer tokens. To test the prod profile via Swagger UI, you will need to use a browser extension (like ModHeader) to manually inject the Authorization: Bearer <your-jwt> header, or test the endpoints using Postman / cURL.
+
 ## Security & Profiles
 
 This application requires security to access the APIs. The security implementation is profile-driven:
 
 ### Development Profile (--spring.profiles.active=dev)
 - **Security Strategy**: HTTP Basic Authentication
-- **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} (defaults to dmin/dmin if unset).
+- **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} (defaults to admin/admin if unset).
 - **CORS**: Allows requests from ${DEV_ALLOWED_ORIGINS} (defaults to http://localhost:3000,http://localhost:8080).
 - **Rate Limiting**: 100 requests per minute per authenticated principal/IP.
 
@@ -120,12 +124,21 @@ This application requires security to access the APIs. The security implementati
 > [!WARNING]
 > The rate limiter (Bucket4j) is strictly in-memory and per-instance. It is not distributed across a cluster.
 
-## Code Coverage
-To generate a comprehensive test coverage report, run:
-`ash
+## Testing & Code Coverage
+
+This project uses **JaCoCo** to track test coverage across the application. 
+
+To execute the entire test suite (Unit, Integration, and Security tests) and generate the coverage report, run:
+
+```bash
 mvn clean verify
-`
-The JaCoCo HTML report will be generated at 	arget/site/jacoco/index.html.
+```
+
+**How to view the JaCoCo coverage report:**
+1. After the Maven command completes successfully, navigate to the newly generated `target` directory.
+2. Open the file located at: `target/site/jacoco/index.html`
+3. You can simply double-click the `index.html` file to open it in your web browser (Chrome, Edge, Firefox, etc.).
+4. The web dashboard will provide a comprehensive breakdown of Instruction, Branch, and Line coverage per package and class.
 
 ## API Overview
 
