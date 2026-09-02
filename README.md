@@ -100,3 +100,90 @@ export DB_PASSWORD="<your_password>"
 3. **Access API Documentation (Swagger UI)**:
    Once the application is running, open:
    [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+
+## API Overview
+
+### 1. Create Audit Event
+Record a new event into the append-only ledger.
+```bash
+curl -X POST http://localhost:8080/audit/events \
+  -H "Content-Type: application/json" \
+  -d '{
+    "eventType": "LOGIN_SUCCESS",
+    "actorId": "user-123",
+    "resourceType": "SYSTEM",
+    "resourceId": "auth-server",
+    "payload": {"ip": "192.168.1.50"}
+  }'
+```
+
+### 2. Query Audit Events
+Retrieve audit events with optional filtering and pagination.
+```bash
+curl -X GET "http://localhost:8080/audit/events?actorId=user-123&page=0&size=20"
+```
+
+### 3. Redact Audit Event Payload
+Perform structured redaction on specific JSON pointers within a payload. The original content-hash commitment is preserved.
+```bash
+curl -X POST http://localhost:8080/audit/events/{id}/redact \
+  -H "Content-Type: application/json" \
+  -d '{
+    "paths": ["/ip"]
+  }'
+```
+
+### 4. Archive Old Records (Retention)
+Soft-archive all active records strictly older than the specified cutoff timestamp.
+```bash
+curl -X POST "http://localhost:8080/audit/retention/archive?before=2025-01-01T00:00:00Z"
+```
+
+### 5. Bulk Export Audit Events
+Export a self-contained, offline-verifiable JSON bundle for a specific resource or actor.
+```bash
+curl -X GET "http://localhost:8080/audit/export?resourceId=auth-server"
+```
+
+### 6. Verify Global Chain Integrity
+Trigger an exhaustive cryptographic verification of the entire database hash-chain.
+```bash
+curl -X GET http://localhost:8080/audit/verify
+```
+
+## Scenario Summaries
+
+### Scenario A: Core Audit Ledger
+Implemented a strictly append-only audit ledger where each event is cryptographically anchored to the previous event forming a linear hash-chain. We use deterministic SHA-256 content hashing (canonicalizing JSON payloads) to guarantee data integrity. The `GET /audit/verify` endpoint dynamically recalculates hashes across the entire database to detect post-write tampering. Update and delete API operations are strictly prohibited.
+
+### Scenario B: Data Lifecycle (Retention, Redaction, Export)
+- **Retention**: Records are soft-archived rather than physically deleted to maintain continuous chain integrity.
+- **Structured Redaction**: Granular JSON node redaction replaces targeted data with `{"redacted": true}`. The original `contentHash` is retained as a mathematical commitment.
+- **Bulk Export**: Regulators can export a subset of records. The export logically threads the global chain and provides boundary metadata (`firstExportedRecordPreviousHash`) allowing independent cryptographic verification of the sparse subset.
+
+### Scenario C: Regulatory Compliance Audit
+Analyzed the ambiguous requirement: *"Regulators need to be able to audit access to client account data."* We normalized this by mapping read/write accesses to existing event properties (`eventType=ACCOUNT_READ`, `resourceType=CLIENT_ACCOUNT`). This approach fully satisfied the regulatory requirement natively using the existing query and export APIs without polluting the generic architecture with domain-specific endpoints.
+
+## Tamper-Verification Demonstration
+
+You can locally demonstrate the system's ability to detect unauthorized database tampering:
+
+1. **Start the application** (`mvn spring-boot:run`).
+2. **Create an event**: Use the Create Audit Event `curl` command above. Note the generated ID.
+3. **Verify Intact Chain**: Run `curl -X GET http://localhost:8080/audit/verify`. You will see `"valid": true` and `"message": "Audit chain is intact"`.
+4. **Tamper via SQL**: Connect to your local MySQL database and modify the payload directly:
+   ```sql
+   UPDATE audit_records SET payload = '{"ip": "9.9.9.9"}' WHERE actor_id = 'user-123';
+   ```
+5. **Detect Tampering**: Run `curl -X GET http://localhost:8080/audit/verify` again.
+6. **Expected Result**: The system will return a `200 OK` response with `"valid": false` and `"violationType": "CONTENT_HASH_MISMATCH"`. This mathematically proves the post-write database manipulation was caught.
+
+## Known Limitations / Prototype vs. Production
+
+This prototype strictly addresses the core cryptographic mechanisms. In a production environment, the following limitations must be addressed:
+* **Memory Pressure**: The export and verification services currently load the entire chain into memory (`findAll()`) to build a topological map. For very large datasets, this will cause Out-Of-Memory (OOM) errors. Production would require streaming or Recursive CTEs.
+* **Security & IAM**: Authentication and authorization are intentionally out of scope. A production deployment requires an API Gateway or Spring Security integration.
+* **Completeness Trust Boundary**: The audit ledger cryptographically guarantees the integrity of events *it receives*. However, if an upstream system has a bug and fails to emit an event, the ledger will be blind to it. We cannot mathematically guarantee global real-world completeness.
+* **Truncation/Rewrite**: An internal hash-chain ensures internal consistency. However, a malicious DBA could delete the tail of the chain entirely. Preventing tail-truncation requires periodically anchoring the `globalChainTipHash` to an external trusted immutable ledger (which is out of scope here).
+* **Configuration**: Prototype database credentials (e.g., default `root`) must be externalized to a secure vault for production.
+* **Redaction Re-hashing**: While redacted records preserve the original `contentHash` commitment, the original plaintext payload is permanently overwritten. Independent offline auditors cannot fully re-verify the hash of redacted records without out-of-band access to the original plaintext.
