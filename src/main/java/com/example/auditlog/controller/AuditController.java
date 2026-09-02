@@ -60,6 +60,8 @@ public class AuditController {
         return ResponseEntity.ok(response);
     }
 
+
+
     /**
      * Exception handler for constraint violations on parameters or illegal arguments
      */
