@@ -3,10 +3,10 @@
 ## Candidate & Submission Details
 
 - **Full Name**: Sushil Diwakar
-- **Email**: [Candidate Email Address]
+- **Email**: sushildiwakar290@gmail.com
 - **Assignment Title**: AI-Assisted Software Engineering System — Audit Log Service
-- **Start Date**: [YYYY-MM-DD]
-- **Submission Date**: [YYYY-MM-DD]
+- **Start Date**: 2026-09-01
+- **Submission Date**: 2026-09-02
 
 ---
 
