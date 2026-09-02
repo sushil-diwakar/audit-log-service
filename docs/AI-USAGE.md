@@ -107,3 +107,47 @@ This document tracks all AI-assisted interactions, architectural contributions, 
   - Refactored `HashService` to use standard Spring dependency injection (`@RequiredArgsConstructor`) for the `ObjectMapper` bean, rather than manually instantiating it, ensuring context consistency.
   - Expanded unit testing to prove that JSON arrays are treated distinctively from objects during canonicalization. A specific test was added validating that altering the order of elements inside a JSON array intentionally alters the SHA-256 hash (as array sequences are semantically meaningful).
   - Updated `docs/hashing.md` to explicitly state the handling rules for JSON arrays compared to standard JSON object sorting.
+
+---
+
+## Log Entry 8: Tamper-Evident Hash Chaining (Commit #7)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Cryptographic Hash Chaining & Concurrency Safeguards
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Applied a `UNIQUE` index to the `previous_hash` column within the database schema to physically prevent chain forking and mathematically enforce linear history constraints.
+  - Implemented `calculateRecordHash()` to tightly couple the immutable `contentHash` with the `previousHash`.
+  - Adopted an "Optimistic Concurrency Control" mechanism that traps Spring's `DataIntegrityViolationException`, allowing concurrent threads to automatically retry and re-sync their append order safely under load.
+  - Switched from timestamp-based chain ordering to strict "Topological Append-Order" using an exact database relationship query `NOT EXISTS (SELECT 1 FROM AuditRecord b WHERE b.previousHash = a.recordHash)`.
+  - Added severe multi-threaded barrage testing `HashChainIntegrationTest` proving deterministic chaining despite event timestamp overlaps.
+  - Created structural documentation detailing the system design in `docs/chaining.md`.
+
+---
+
+## Log Entry 9: Hash Chain Verification API (Commit #8)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: GET `/audit/verify` API Implementation & Database Tampering Proofs
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Implemented a complete cryptographic chain verifier `ChainVerificationService` executing via `GET /audit/verify`.
+  - Constructed the traversal algorithm mapped in `Map<String, List<AuditRecord>>` to detect cycle relationships, orphans (`DISCONNECTED_RECORD`), forks, broken linkages, and origin violations (`MISSING_GENESIS` / `MULTIPLE_GENESIS`).
+  - Added automatic recalculation matching on all events to flag altered fields returning `RECORD_HASH_MISMATCH`.
+  - Defined explicit DTO structures (`VerificationResponse`) isolating diagnostic outputs from standard queries.
+  - Used Spring JDBC Template in `VerificationIntegrationTest` to forcibly simulate raw database breaches (bypassing Hibernate cache mappings) specifically to prove the verifier successfully flags unauthorized modifications natively stored in MySQL.
+  - Wrote explicit limitation reporting in `docs/verification.md`.
+
+---
+
+## Log Entry 10: Scenario A Completion & End-to-End Validation (Commit #9)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Finalizing Scenario A, Append-Only Checks, & E2E Testing
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Executed a comprehensive assessment of the Commits #1-#8 integration.
+  - Discovered and resolved a subtle MySQL precision truncation bug natively truncating Java's `Instant.now()` (nanoseconds) to MySQL's `TIMESTAMP(6)` (microseconds). Fixed by enforcing `.truncatedTo(ChronoUnit.MILLIS)` in the assignment logic to ensure symmetric hash recalculation upon DB read.
+  - Fortified the API's strict append-only constraints by generating and testing `MockMvc` configurations explicitly asserting HTTP `404 Not Found` or `405 Method Not Allowed` for `PUT`, `PATCH`, and `DELETE` events.
+  - Designed `ScenarioAEndToEndTest.java`, an interview-friendly integration flow successfully navigating event creation, querying, successful verification, simulating a malicious database-layer UPDATE via JDBC, and successfully returning `valid = false`.
+  - Composed the final project summary document `docs/scenario-a.md` detailing the implemented functionalities and identified constraints before concluding the milestone.

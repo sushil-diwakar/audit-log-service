@@ -255,4 +255,25 @@ class AuditControllerTest {
                 .andExpect(jsonPath("$.content[3].timestamp").value("2024-01-04T10:00:00Z"))
                 .andExpect(jsonPath("$.content[4].timestamp").value("2024-01-04T10:00:00Z"));
     }
+
+    // --- Append-Only Integrity Tests ---
+    
+    @Test
+    void testUpdateOrDeleteMethodsNotSupported() throws Exception {
+        // Assert PUT is not allowed on the collection
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/audit/events")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isMethodNotAllowed());
+
+        // Assert DELETE is not found (since we don't even map the ID path)
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/audit/events/some-id"))
+                .andExpect(status().isNotFound());
+                
+        // Assert PATCH is not found
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/audit/events/some-id")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+                .andExpect(status().isNotFound());
+    }
 }

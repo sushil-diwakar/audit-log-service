@@ -49,7 +49,7 @@ public class AuditService {
     }
 
     private AuditEventResponse doCreateAuditEvent(AuditEventRequest request) {
-        Instant recordTimestamp = request.getTimestamp() != null ? request.getTimestamp() : Instant.now();
+        Instant recordTimestamp = request.getTimestamp() != null ? request.getTimestamp() : Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
 
         // 1. Construct the base record
         AuditRecord record = AuditRecord.builder()
