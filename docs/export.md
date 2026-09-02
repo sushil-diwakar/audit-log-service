@@ -1,0 +1,43 @@
+# Audit Log Bulk Export (Scenario B)
+
+## Goal
+The audit log service provides a self-contained, mathematically verifiable bulk export mechanism for a filtered subset of events (by `actorId` or `resourceId`).
+
+## Design
+
+### Cryptographic Boundary Anchoring
+When exporting a filtered subset of events, the exported array is a "sparse" version of the global hash chain.
+Because the subset skips unrelated records, the `previousHash` of a given exported record will likely point to the `recordHash` of an omitted record.
+
+To support offline independent verification:
+1. The exported records preserve their actual `previousHash` natively generated at the time of creation. This hash serves as the external chain boundary anchor.
+2. The export `metadata` includes the `globalChainTipHash` (the tip of the global chain at the time of export).
+3. The export `metadata` includes the `firstExportedRecordHash` and `lastExportedRecordHash` to define the bounds of the provided bundle.
+
+### Offline Independent Verification
+Because the existing chain architecture defines `recordHash = SHA-256(contentHash + "|" + previousHash)`, **each exported record is completely self-contained and independently verifiable**.
+
+An independent auditor/script evaluates the JSON bundle by asserting for every record:
+1. Recalculate the payload hash (if `ACTIVE` or `ARCHIVED`) and ensure it perfectly matches the `contentHash`.
+2. Hash `(contentHash + "|" + previousHash)` and ensure it perfectly matches the `recordHash`.
+
+If all records pass, the auditor definitively knows no data in the bundle was tampered with after creation.
+
+### Redacted & Archived Records
+* **Archived**: Exported identically to `ACTIVE` records since the payload remains intact.
+* **Redacted**: The targeted JSON node is replaced with the structured marker `{"redacted": true}` while the surrounding payload structure is preserved. The verifier will read the `status`, skip re-hashing the payload, and mathematically verify the `recordHash` using the securely committed `contentHash` provided in the export.
+
+## Limitations & Tradeoffs
+
+### Sparse Chain Completeness
+Because this is a sparse subset of a linear hash chain, the cryptography proves **tamper-evidence** and **inclusion**. However, it cannot cryptographically prove **completeness**. 
+An offline verifier can mathematically guarantee the provided records are authentic and unmodified, but they cannot cryptographically detect if an administrator secretly omitted a matching record from the JSON array before delivering it. Complete proof of omission requires an Accumulator or a Merkle Tree, which falls outside the current linear-chain architecture.
+
+### Global Tip Limitations
+The `globalChainTipHash` provides boundary context, but it does NOT independently prove the export timestamp or completeness on its own.
+
+### Performance at Scale
+This implementation builds an in-memory JSON bundle, which is acceptable for this assignment prototype. In a production-scale system with millions of events, the export would likely require streaming mechanisms (e.g., `ndjson` streaming) or asynchronous background tasks exporting directly to an S3 bucket to avoid memory exhaustion (OOM).
+
+## Security
+Bulk exports expose large amounts of sensitive historical data. Production deployments should enforce strict authentication and authorization, restricting the `/audit/export` endpoint exclusively to authorized administrative or compliance roles.

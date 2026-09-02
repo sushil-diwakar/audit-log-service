@@ -151,6 +151,7 @@ This document tracks all AI-assisted interactions, architectural contributions, 
   - Fortified the API's strict append-only constraints by generating and testing `MockMvc` configurations explicitly asserting HTTP `404 Not Found` or `405 Method Not Allowed` for `PUT`, `PATCH`, and `DELETE` events.
   - Designed `ScenarioAEndToEndTest.java`, an interview-friendly integration flow successfully navigating event creation, querying, successful verification, simulating a malicious database-layer UPDATE via JDBC, and successfully returning `valid = false`.
   - Composed the final project summary document `docs/scenario-a.md` detailing the implemented functionalities and identified constraints before concluding the milestone.
+
 ---
 
 ## Log Entry 11: Audit Log Retention / Soft Archival (Commit #10)
@@ -160,24 +161,38 @@ This document tracks all AI-assisted interactions, architectural contributions, 
 - **AI Tool / System**: Antigravity (Google DeepMind)
 - **Scope & Objectives**:
   - Engineered a **Soft Archival** mechanism (RetentionService) to transition records older than a specified cutoff timestamp from ACTIVE to ARCHIVED status.
-  - Utilized a highly efficient native JPA @Modifying bulk update query (rchiveOldRecords) to perform archival idempotently without loading entities into memory.
-  - Preserved complete cryptographic chain integrity by ensuring status changes do not affect contentHash, previousHash, or ecordHash fields.
+  - Utilized a highly efficient native JPA @Modifying bulk update query (archiveOldRecords) to perform archival idempotently without loading entities into memory.
+  - Preserved complete cryptographic chain integrity by ensuring status changes do not affect contentHash, previousHash, or recordHash fields.
   - Exposed a strict internal-facing API endpoint (POST /audit/retention/archive?before=<timestamp>) explicitly preventing individual arbitrary record modifications.
   - Developed comprehensive integration tests (RetentionIntegrationTest) mathematically asserting that all core cryptographic properties, hashes, and payload contents remain identical bit-for-bit before and after the archival transition.
-  - Drafted docs/retention.md documenting the design decisions, explaining why physical deletion fundamentally compromises blockchain/hash-chain integrity, and outlining the tradeoffs of client-supplied timestamps vs. ingestion-time logic.
- 
- - - -  
-  
- # #   L o g   E n t r y   1 2 :   S t r u c t u r e d   R e d a c t i o n   ( C o m m i t   # 1 1 )  
-  
- -   * * T i m e s t a m p * * :   2 0 2 6 - 0 9 - 0 2  
- -   * * A c t i v i t y * * :   I m p l e m e n t i n g   S c e n a r i o   C   ( S t r u c t u r e d   R e d a c t i o n )  
- -   * * A I   T o o l   /   S y s t e m * * :   A n t i g r a v i t y   ( G o o g l e   D e e p M i n d )  
- -   * * S c o p e   &   O b j e c t i v e s * * :  
-     -   I m p l e m e n t e d   ` c o n t e n t H a s h `   c o l u m n   e x p l i c i t l y   p e r s i s t i n g   t h e   o r i g i n a l   c o n t e n t   c r y p t o g r a p h i c   c o m m i t m e n t .  
-     -   B u i l t   ` R e d a c t i o n S e r v i c e `   e x e c u t i n g   a t o m i c   J S O N   P o i n t e r   n o d e   r e p l a c e m e n t s   ( ` { " r e d a c t e d " :   t r u e } ` )   o v e r   c o m p l e x   o b j e c t s / a r r a y s   w h i l e   p e r f e c t l y   m a i n t a i n i n g   s u r r o u n d i n g   p a y l o a d s .  
-     -   I m p l e m e n t e d   h a r d   f a i l - f a s t   v a l i d a t i o n   a g a i n s t   i n v a l i d   J S O N   p o i n t e r s   a n d   m i s s i n g   p a t h s   e n s u r i n g   t r a n s a c t i o n a l   a t o m i c i t y   ( ` H T T P   4 0 0   B a d   R e q u e s t ` ) .  
-     -   A d a p t e d   ` C h a i n V e r i f i c a t i o n S e r v i c e `   d i s t i n g u i s h i n g   b e t w e e n   ` A C T I V E `   a n d   ` R E D A C T E D `   r e c o r d s ,   e n s u r i n g   r e d a c t e d   s t r u c t u r e s   b y p a s s   f u l l   h a s h   r e c a l c u l a t i o n   w h i l e   p r o v i n g   m a t h e m a t i c a l l y   t h e y   r e m a i n   l e g a l l y   a n c h o r e d   t o   t h e i r   o r i g i n a l   h a s h e s .  
-     -   C o m p o s e d   ` R e d a c t i o n I n t e g r a t i o n T e s t `   e x t e n s i v e l y   c o v e r i n g   d e e p   a r r a y   m o d i f i c a t i o n s ,   s y n t a x   c h e c k s ,   m u l t i p l e - f i e l d   o p e r a t i o n s ,   a n d   e x p l i c i t   A P I   t e s t i n g .  
-     -   A u t h o r e d   ` d o c s / r e d a c t i o n . m d `   e x p l i c i t l y   i d e n t i f y i n g   t h e   p r i v a c y   t r a d e o f f   ( u n r e d a c t e d   p a y l o a d s   a r e   f u n d a m e n t a l l y   s t r i p p e d   a n d   m u s t   b e   s e c u r e d   o u t - o f - b a n d   f o r   l e g a l   r e - v e r i f i c a t i o n s ) .  
- 
+  - Drafted docs/retention.md documenting the design decisions, explaining why physical deletion fundamentally compromises hash-chain integrity, and outlining the tradeoffs of client-supplied timestamps vs. ingestion-time logic.
+
+---
+
+## Log Entry 12: Structured Redaction (Commit #11)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Implementing Scenario B (Structured Redaction)
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Implemented `contentHash` column explicitly persisting the original content cryptographic commitment.
+  - Built `RedactionService` executing atomic JSON Pointer node replacements (`{"redacted": true}`) over complex objects/arrays while perfectly maintaining surrounding payloads.
+  - Implemented hard fail-fast validation against invalid JSON pointers and missing paths ensuring transactional atomicity (`HTTP 400 Bad Request`).
+  - Adapted `ChainVerificationService` distinguishing between `ACTIVE` and `REDACTED` records, ensuring redacted structures bypass full hash recalculation while proving mathematically they remain legally anchored to their original hashes.
+  - Composed `RedactionIntegrationTest` extensively covering deep array modifications, syntax checks, multiple-field operations, and explicit API testing.
+  - Authored `docs/redaction.md` explicitly identifying the privacy tradeoff (unredacted payloads are fundamentally stripped and must be secured out-of-band for legal re-verifications).
+
+---
+
+## Log Entry 13: Bulk Export (Scenario B)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Implementing Scenario B (Bulk Export)
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Implemented `ExportService` and `GET /audit/export` endpoint yielding self-contained, mathematically verifiable JSON bundles.
+  - Defined `ExportBundle`, `ExportMetadata`, and `ExportRecord` DTOs enforcing cryptographic boundaries (`firstExportedRecordHash`, `globalChainTipHash`).
+  - Achieved rigorous topological sorting of filtered subsets by mapping the global chain via `previousHash` links.
+  - Integrated offline verification logic proving `contentHash` and `recordHash` re-calculations natively support omitted boundaries.
+  - Created robust integration tests covering API layer validation, filtering correctly, and programmatic cryptographic assertion over `ARCHIVED` and `REDACTED` payloads inside the exported bundle.
+  - Documented explicit mathematical limitations detailing why sparse linear hash-chains guarantee tamper-evidence but not completeness in `docs/export.md`.
