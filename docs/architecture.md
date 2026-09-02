@@ -81,3 +81,21 @@ MySQL strictly enforces a unique constraint on `previous_hash`. If two threads c
 - **Unbounded Memory Loading**: `ChainVerificationService` and `ExportService` currently utilize `findAll()` to build topological graph maps in memory. While acceptable for a prototype, production databases with millions of rows will crash due to Out-Of-Memory (OOM) errors. Future scaling requires recursive CTEs or bounded stream processing.
 - **Authentication (IAM)**: Excluded by prototype scope. Production requires an API Gateway and JWT validation.
 - **Completeness Guarantees**: The service mathematically proves the integrity of events it *receives*, but cannot detect if an upstream application crashed or silently failed to report an access event.
+
+## 17. Security Layer
+
+The application implements a stateless API security model dictated by Spring profiles to strictly separate developer experience from production posture.
+
+### Profile-Based Security Splits
+1. **DEV Profile (DevSecurityConfig)**: Exposes HTTP Basic Authentication. Credentials are configurable via environment variables (DEV_USER / DEV_PASSWORD) to avoid exposing hardcoded credentials in the repository while keeping local testing simple.
+2. **PROD Profile (ProdSecurityConfig)**: Acts as an OAuth2 Resource Server. It enforces stateless JWT validation. Note that Spring Security performs issuer/JWK discovery during application initialization, requiring outbound network connectivity to the IDP at startup. Once the keys are cached, per-request signature validation is mathematically offline. The OIDC issuer and JWK URIs are externalized (OIDC_ISSUER_URI), ensuring no hardcoded keys or vendor-specific integrations exist in the source code. It additionally implements explicit audience validation via the AudienceValidator.
+
+### CORS Strategy
+CORS is profile-specific.
+- The dev profile allows localhost/dev URLs by default.
+- The prod profile does not permit wildcard (*) origins. Allowed origins must be explicitly injected via the PROD_ALLOWED_ORIGINS environment variable, and * is strictly prohibited by configuration code at initialization.
+
+### Rate Limiting Architecture
+To satisfy the constraint against bringing in heavy infrastructure (like Redis), we implemented a lightweight, in-memory **Token Bucket algorithm using Bucket4j** within a Servlet Filter (RateLimitFilter).
+- **Identifier**: It scopes rate limits to the authenticated principal. If unauthenticated, it falls back to the client IP.
+- **Limitation Tradeoff**: Because it relies on ConcurrentHashMap and local JVM state, it is strictly a per-instance limiter.

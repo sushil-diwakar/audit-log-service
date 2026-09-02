@@ -1,0 +1,15 @@
+﻿spring:
+  config:
+    activate:
+      on-profile: dev
+  security:
+    user:
+      name: ${DEV_USER:admin}
+      password: ${DEV_PASSWORD:admin}
+
+audit:
+  cors:
+    allowed-origins: ${DEV_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
+  rate-limit:
+    capacity: 100
+    refill-tokens: 100

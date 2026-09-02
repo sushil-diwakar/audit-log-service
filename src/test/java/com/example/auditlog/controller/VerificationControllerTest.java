@@ -5,14 +5,23 @@ import com.example.auditlog.service.ChainVerificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import com.example.auditlog.config.DevSecurityConfig;
+import com.example.auditlog.config.RateLimitFilter;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.test.context.support.WithMockUser;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(VerificationController.class)
+@Import({DevSecurityConfig.class, RateLimitFilter.class})
+@ActiveProfiles("dev")
+@WithMockUser
 class VerificationControllerTest {
 
     @Autowired

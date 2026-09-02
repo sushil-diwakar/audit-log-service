@@ -1,4 +1,4 @@
-# AI-Assisted Software Engineering System — Audit Log Service
+# AI-Assisted Software Engineering System â€” Audit Log Service
 
 A tamper-evident, append-only audit log service backend prototype built with **Java 21**, **Spring Boot 3.x**, and **MySQL 8**.
 
@@ -22,14 +22,14 @@ The primary objective of this service is to provide an immutable, cryptographica
 
 ```text
 com.example.auditlog
-├── controller    # REST API endpoints & request routing
-├── service       # Core business logic & interfaces
-├── repository    # Spring Data JPA repositories & database access
-├── entity        # JPA domain models / database entities
-├── dto           # Data Transfer Objects for API requests/responses
-├── exception     # Custom exception classes & global exception handlers
-├── config        # Spring configurations (OpenAPI, security, etc.)
-└── util          # Helper utilities (hashing, canonicalization, etc.)
+â”œâ”€â”€ controller    # REST API endpoints & request routing
+â”œâ”€â”€ service       # Core business logic & interfaces
+â”œâ”€â”€ repository    # Spring Data JPA repositories & database access
+â”œâ”€â”€ entity        # JPA domain models / database entities
+â”œâ”€â”€ dto           # Data Transfer Objects for API requests/responses
+â”œâ”€â”€ exception     # Custom exception classes & global exception handlers
+â”œâ”€â”€ config        # Spring configurations (OpenAPI, security, etc.)
+â””â”€â”€ util          # Helper utilities (hashing, canonicalization, etc.)
 ```
 
 ## Local Setup & Configuration
@@ -100,6 +100,32 @@ export DB_PASSWORD="<your_password>"
 3. **Access API Documentation (Swagger UI)**:
    Once the application is running, open:
    [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+
+## Security & Profiles
+
+This application requires security to access the APIs. The security implementation is profile-driven:
+
+### Development Profile (--spring.profiles.active=dev)
+- **Security Strategy**: HTTP Basic Authentication
+- **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} (defaults to dmin/dmin if unset).
+- **CORS**: Allows requests from ${DEV_ALLOWED_ORIGINS} (defaults to http://localhost:3000,http://localhost:8080).
+- **Rate Limiting**: 100 requests per minute per authenticated principal/IP.
+
+### Production Profile (--spring.profiles.active=prod)
+- **Security Strategy**: JWT / OAuth2 Resource Server (No Basic Auth).
+- **OIDC Configuration**: You must set ${OIDC_ISSUER_URI} and ${OIDC_AUDIENCE} in your environment. Spring Security performs issuer/JWK discovery during application initialization. The application therefore requires connectivity to the configured OIDC issuer/JWK discovery endpoint when initializing the JWT decoder. Once the signing keys are available/cached, individual JWT signature validation does not require a network call for every request. A fully air-gapped environment would require a different key-management/configuration approach and is outside this prototype's scope.
+- **CORS**: STRICTLY requires ${PROD_ALLOWED_ORIGINS} environment variable. Unrestricted * is not supported.
+- **Rate Limiting**: 1000 requests per minute.
+
+> [!WARNING]
+> The rate limiter (Bucket4j) is strictly in-memory and per-instance. It is not distributed across a cluster.
+
+## Code Coverage
+To generate a comprehensive test coverage report, run:
+`ash
+mvn clean verify
+`
+The JaCoCo HTML report will be generated at 	arget/site/jacoco/index.html.
 
 ## API Overview
 

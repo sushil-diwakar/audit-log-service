@@ -1,4 +1,7 @@
-spring:
+﻿spring:
+  profiles:
+    active: dev
+
   application:
     name: audit-log-service
 
