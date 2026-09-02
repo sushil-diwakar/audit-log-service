@@ -14,4 +14,8 @@ public interface AuditRecordRepository extends JpaRepository<AuditRecord, UUID>,
     
     @Query("SELECT a FROM AuditRecord a WHERE NOT EXISTS (SELECT 1 FROM AuditRecord b WHERE b.previousHash = a.recordHash)")
     Optional<AuditRecord> findCurrentChainHead();
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE AuditRecord a SET a.status = 'ARCHIVED' WHERE a.timestamp < :cutoff AND a.status = 'ACTIVE'")
+    int archiveOldRecords(@org.springframework.data.repository.query.Param("cutoff") java.time.Instant cutoff);
 }

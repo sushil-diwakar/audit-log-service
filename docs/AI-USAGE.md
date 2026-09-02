@@ -151,3 +151,17 @@ This document tracks all AI-assisted interactions, architectural contributions, 
   - Fortified the API's strict append-only constraints by generating and testing `MockMvc` configurations explicitly asserting HTTP `404 Not Found` or `405 Method Not Allowed` for `PUT`, `PATCH`, and `DELETE` events.
   - Designed `ScenarioAEndToEndTest.java`, an interview-friendly integration flow successfully navigating event creation, querying, successful verification, simulating a malicious database-layer UPDATE via JDBC, and successfully returning `valid = false`.
   - Composed the final project summary document `docs/scenario-a.md` detailing the implemented functionalities and identified constraints before concluding the milestone.
+---
+
+## Log Entry 11: Audit Log Retention / Soft Archival (Commit #10)
+
+- **Timestamp**: 2026-09-02
+- **Activity**: Implementing Scenario B (Retention) with Soft Archival
+- **AI Tool / System**: Antigravity (Google DeepMind)
+- **Scope & Objectives**:
+  - Engineered a **Soft Archival** mechanism (RetentionService) to transition records older than a specified cutoff timestamp from ACTIVE to ARCHIVED status.
+  - Utilized a highly efficient native JPA @Modifying bulk update query (rchiveOldRecords) to perform archival idempotently without loading entities into memory.
+  - Preserved complete cryptographic chain integrity by ensuring status changes do not affect contentHash, previousHash, or ecordHash fields.
+  - Exposed a strict internal-facing API endpoint (POST /audit/retention/archive?before=<timestamp>) explicitly preventing individual arbitrary record modifications.
+  - Developed comprehensive integration tests (RetentionIntegrationTest) mathematically asserting that all core cryptographic properties, hashes, and payload contents remain identical bit-for-bit before and after the archival transition.
+  - Drafted docs/retention.md documenting the design decisions, explaining why physical deletion fundamentally compromises blockchain/hash-chain integrity, and outlining the tradeoffs of client-supplied timestamps vs. ingestion-time logic.
