@@ -96,6 +96,6 @@ class ScenarioAEndToEndTest {
         mockMvc.perform(get("/audit/verify"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valid").value(false))
-                .andExpect(jsonPath("$.violationType").value("RECORD_HASH_MISMATCH"));
+                .andExpect(jsonPath("$.violationType").value("CONTENT_HASH_MISMATCH"));
     }
 }

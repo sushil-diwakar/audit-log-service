@@ -83,7 +83,7 @@ class VerificationIntegrationTest {
     }
 
     @Test
-    void testTamperContent_DetectsRecordHashMismatch() throws Exception {
+    void testTamperContent_DetectsContentHashMismatch() throws Exception {
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-1"));
         
         // Pass the UUID object directly so JdbcTemplate maps it correctly to BINARY(16) if needed
@@ -93,7 +93,7 @@ class VerificationIntegrationTest {
         VerificationResponse response = verificationService.verifyChain();
         
         assertThat(response.isValid()).isFalse();
-        assertThat(response.getViolationType()).isEqualTo(ChainViolationType.RECORD_HASH_MISMATCH);
+        assertThat(response.getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
     }
 
     @Test
@@ -148,6 +148,8 @@ class VerificationIntegrationTest {
         
         // Calculate exact correct hashes so it passes the RECORD_HASH_MISMATCH check
         String contentHash = hashService.calculateContentHash(orphan);
+        orphan.setContentHash(contentHash);
+        
         String recordHash = hashService.calculateRecordHash(contentHash, orphan.getPreviousHash());
         orphan.setRecordHash(recordHash);
         

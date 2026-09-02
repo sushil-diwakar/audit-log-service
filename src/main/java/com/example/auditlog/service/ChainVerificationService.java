@@ -40,8 +40,20 @@ public class ChainVerificationService {
                 .collect(Collectors.groupingBy(AuditRecord::getPreviousHash));
 
         for (AuditRecord record : allRecords) {
-            String computedContent = hashService.calculateContentHash(record);
-            String computedRecord = hashService.calculateRecordHash(computedContent, record.getPreviousHash());
+            String storedContentHash = record.getContentHash();
+            
+            if (record.getStatus() == com.example.auditlog.entity.AuditRecordStatus.REDACTED) {
+                if (storedContentHash == null || !storedContentHash.matches("^[a-f0-9]{64}$")) {
+                    return buildFailure("Invalid content hash for REDACTED record", ChainViolationType.INVALID_CONTENT_HASH, record.getId(), 0);
+                }
+            } else {
+                String computedContent = hashService.calculateContentHash(record);
+                if (!computedContent.equals(storedContentHash)) {
+                    return buildFailure("Content hash mismatch detected", ChainViolationType.CONTENT_HASH_MISMATCH, record.getId(), 0);
+                }
+            }
+
+            String computedRecord = hashService.calculateRecordHash(storedContentHash, record.getPreviousHash());
             
             if (!computedRecord.equals(record.getRecordHash())) {
                 return buildFailure("Record hash mismatch detected", ChainViolationType.RECORD_HASH_MISMATCH, record.getId(), 0);

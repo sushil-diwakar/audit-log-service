@@ -42,6 +42,7 @@ class AuditRecordRepositoryTest {
                 .payload(jsonPayload)
                 .timestamp(Instant.now())
                 .previousHash("0000000000000000000000000000000000000000000000000000000000000000")
+                .contentHash("b1b1a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
                 .recordHash("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e")
                 // Status implicitly ACTIVE through Builder.Default
                 .build();

@@ -129,11 +129,11 @@ class AuditControllerTest {
     // --- GET API Tests ---
 
     private void insertTestRecords() throws Exception {
-        AuditRecord r1 = AuditRecord.builder().actorId("actor-1").resourceType("USER").resourceId("usr-1").eventType("LOGIN").timestamp(Instant.parse("2024-01-01T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
-        AuditRecord r2 = AuditRecord.builder().actorId("actor-2").resourceType("USER").resourceId("usr-2").eventType("LOGIN").timestamp(Instant.parse("2024-01-02T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
-        AuditRecord r3 = AuditRecord.builder().actorId("actor-1").resourceType("DOC").resourceId("doc-1").eventType("UPLOAD").timestamp(Instant.parse("2024-01-03T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
-        AuditRecord r4 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).build();
-        AuditRecord r5 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).build(); // Same timestamp for sorting test
+        AuditRecord r1 = AuditRecord.builder().actorId("actor-1").resourceType("USER").resourceId("usr-1").eventType("LOGIN").timestamp(Instant.parse("2024-01-01T10:00:00Z")).payload(objectMapper.readTree("{}")).contentHash("h1").build();
+        AuditRecord r2 = AuditRecord.builder().actorId("actor-2").resourceType("USER").resourceId("usr-2").eventType("LOGIN").timestamp(Instant.parse("2024-01-02T10:00:00Z")).payload(objectMapper.readTree("{}")).contentHash("h2").build();
+        AuditRecord r3 = AuditRecord.builder().actorId("actor-1").resourceType("DOC").resourceId("doc-1").eventType("UPLOAD").timestamp(Instant.parse("2024-01-03T10:00:00Z")).payload(objectMapper.readTree("{}")).contentHash("h3").build();
+        AuditRecord r4 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).contentHash("h4").build();
+        AuditRecord r5 = AuditRecord.builder().actorId("actor-3").resourceType("DOC").resourceId("doc-2").eventType("DOWNLOAD").timestamp(Instant.parse("2024-01-04T10:00:00Z")).payload(objectMapper.readTree("{}")).contentHash("h5").build(); // Same timestamp for sorting test
         
         repository.saveAllAndFlush(List.of(r1, r2, r3, r4, r5));
     }

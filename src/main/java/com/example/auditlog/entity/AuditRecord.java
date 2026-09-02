@@ -56,6 +56,9 @@ public class AuditRecord {
     @Column(length = 64, unique = true)
     private String previousHash;
 
+    @Column(length = 64, nullable = false)
+    private String contentHash;
+
     @Column(length = 64)
     private String recordHash;
 

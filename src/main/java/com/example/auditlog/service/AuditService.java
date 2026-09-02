@@ -63,6 +63,7 @@ public class AuditService {
 
         // 2. Compute Content Hash
         String contentHash = hashService.calculateContentHash(record);
+        record.setContentHash(contentHash);
 
         // 3. Determine previous hash by finding the absolute latest record (true append order)
         String previousHash = auditRecordRepository.findCurrentChainHead()

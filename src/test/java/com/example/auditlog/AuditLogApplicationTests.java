@@ -57,6 +57,7 @@ class AuditLogApplicationTests {
                 .payload(payload)
                 .timestamp(Instant.now())
                 .status(AuditRecordStatus.ACTIVE)
+                .contentHash("testhash")
                 .build();
 
         // 3. Saves the record using AuditRecordRepository
