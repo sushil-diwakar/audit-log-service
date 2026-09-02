@@ -24,16 +24,34 @@ import java.util.stream.Collectors;
 public class AuditService {
 
     private final AuditRecordRepository auditRecordRepository;
+    private final HashService hashService;
+
+    public static final String GENESIS_HASH = "GENESIS";
+    private static final int MAX_RETRIES = 3;
 
     /**
      * Creates and persists a new AuditRecord based on the provided request.
+     * Incorporates retry logic to handle concurrent chain append collisions.
      */
-    @Transactional
     public AuditEventResponse createAuditEvent(AuditEventRequest request) {
-        // Use the caller's timestamp if provided; otherwise, default to the current time.
+        for (int i = 0; i < MAX_RETRIES; i++) {
+            try {
+                return doCreateAuditEvent(request);
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                // If the unique constraint on previousHash is violated by a concurrent writer,
+                // we catch and retry. If max retries are exhausted, bubble up an exception.
+                if (i == MAX_RETRIES - 1) {
+                    throw new IllegalStateException("Failed to append to audit log due to high concurrency. Please try again.", e);
+                }
+            }
+        }
+        throw new IllegalStateException("Unreachable");
+    }
+
+    private AuditEventResponse doCreateAuditEvent(AuditEventRequest request) {
         Instant recordTimestamp = request.getTimestamp() != null ? request.getTimestamp() : Instant.now();
 
-        // Build the entity. Note that the previousHash and recordHash are left null intentionally.
+        // 1. Construct the base record
         AuditRecord record = AuditRecord.builder()
                 .eventType(request.getEventType())
                 .actorId(request.getActorId())
@@ -41,10 +59,23 @@ public class AuditService {
                 .resourceId(request.getResourceId())
                 .payload(request.getPayload())
                 .timestamp(recordTimestamp)
-                // status defaults to ACTIVE via the entity's @Builder.Default
                 .build();
 
-        // Save to the database and flush to ensure DB-generated fields (like createdAt) are populated
+        // 2. Compute Content Hash
+        String contentHash = hashService.calculateContentHash(record);
+
+        // 3. Determine previous hash by finding the absolute latest record (true append order)
+        String previousHash = auditRecordRepository.findCurrentChainHead()
+                .map(AuditRecord::getRecordHash)
+                .orElse(GENESIS_HASH);
+
+        record.setPreviousHash(previousHash);
+
+        // 4. Compute Record Hash
+        String recordHash = hashService.calculateRecordHash(contentHash, previousHash);
+        record.setRecordHash(recordHash);
+
+        // 5. Save and Flush. Since previousHash is unique, concurrent identical appends will fail here.
         AuditRecord savedRecord = auditRecordRepository.saveAndFlush(record);
 
         return mapToResponse(savedRecord);

@@ -56,6 +56,20 @@ public class HashService {
     }
 
     /**
+     * Calculates the final record hash by chaining the content hash with the previous record's hash.
+     */
+    public String calculateRecordHash(String contentHash, String previousHash) {
+        try {
+            String combined = contentHash + "|" + previousHash;
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(combined.getBytes(StandardCharsets.UTF_8));
+            return bytesToHex(hashBytes);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("Failed to calculate record hash", e);
+        }
+    }
+
+    /**
      * Recursively sorts the fields of a JSON object to ensure deterministic representation.
      */
     private JsonNode canonicalizeNode(JsonNode node) {

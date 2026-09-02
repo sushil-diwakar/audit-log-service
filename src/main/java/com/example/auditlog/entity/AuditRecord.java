@@ -53,7 +53,7 @@ public class AuditRecord {
     @Column(nullable = false)
     private Instant timestamp;
 
-    @Column(length = 64)
+    @Column(length = 64, unique = true)
     private String previousHash;
 
     @Column(length = 64)
