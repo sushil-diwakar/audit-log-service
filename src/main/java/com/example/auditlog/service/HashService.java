@@ -100,6 +100,23 @@ public class HashService {
     /**
      * Converts a byte array into a lowercase hexadecimal string.
      */
+
+    /**
+     * Calculates a cryptographic commitment for a redaction event.
+     * Binds the original content hash to the new redacted payload.
+     */
+    public String calculateRedactionDigest(String originalContentHash, JsonNode redactedPayload) {
+        try {
+            String payloadString = mapper.writeValueAsString(canonicalizeNode(redactedPayload));
+            String combined = originalContentHash + "|REDACTED|" + payloadString;
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hashBytes = digest.digest(combined.getBytes(StandardCharsets.UTF_8));
+            return bytesToHex(hashBytes);
+        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
+            throw new IllegalStateException("Failed to calculate redaction digest", e);
+        }
+    }
+
     private String bytesToHex(byte[] bytes) {
         StringBuilder hexString = new StringBuilder(2 * bytes.length);
         for (byte b : bytes) {

@@ -24,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(RetentionController.class)
 @Import({DevSecurityConfig.class, RateLimitFilter.class})
 @ActiveProfiles("dev")
-@WithMockUser
+@WithMockUser(authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify"})
 public class RetentionControllerTest {
 
     @Autowired

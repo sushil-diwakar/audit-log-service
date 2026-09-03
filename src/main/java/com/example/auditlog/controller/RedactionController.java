@@ -1,6 +1,7 @@
 package com.example.auditlog.controller;
 
 import com.example.auditlog.dto.RedactionRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.auditlog.dto.RedactionResponse;
 import com.example.auditlog.service.RedactionService;
 import jakarta.validation.Valid;
@@ -21,6 +22,7 @@ public class RedactionController {
 
     private final RedactionService redactionService;
 
+    @PreAuthorize("hasAuthority(\'SCOPE_audit:redact\')")
     @PostMapping("/{id}/redact")
     public ResponseEntity<RedactionResponse> redactEvent(
             @PathVariable UUID id,

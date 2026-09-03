@@ -1,6 +1,7 @@
 package com.example.auditlog.controller;
 
 import com.example.auditlog.dto.ArchivalResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.auditlog.service.RetentionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ public class RetentionController {
      * 
      * @param before The cutoff ISO-8601 timestamp. E.g., 2024-01-01T00:00:00Z
      */
+    @PreAuthorize("hasAuthority(\'SCOPE_audit:archive\')")
     @PostMapping("/archive")
     public ResponseEntity<ArchivalResponse> archive(@RequestParam("before") Instant before) {
         ArchivalResponse response = retentionService.archiveRecordsBefore(before);

@@ -1,6 +1,7 @@
 package com.example.auditlog.security;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -32,7 +33,7 @@ public class ProdSecurityConfigTest {
 
     @Test
     void requestWithValidJwt_Returns200() throws Exception {
-        mockMvc.perform(get("/audit/events").with(jwt()))
+        mockMvc.perform(get("/audit/events").with(jwt().authorities(new SimpleGrantedAuthority("SCOPE_audit:read"))))
                 .andExpect(status().isOk());
     }
 }

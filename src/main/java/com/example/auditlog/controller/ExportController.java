@@ -1,6 +1,7 @@
 package com.example.auditlog.controller;
 
 import com.example.auditlog.dto.ExportBundle;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.auditlog.service.ExportService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,7 @@ public class ExportController {
 
     private final ExportService exportService;
 
+    @PreAuthorize("hasAuthority(\'SCOPE_audit:export\')")
     @GetMapping("/export")
     public ResponseEntity<ExportBundle> exportAuditRecords(
             @RequestParam(required = false) String actorId,

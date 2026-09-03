@@ -1,6 +1,7 @@
 package com.example.auditlog.controller;
 
 import com.example.auditlog.dto.AuditEventRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.example.auditlog.dto.AuditEventResponse;
 import com.example.auditlog.dto.PagedResponse;
 import com.example.auditlog.service.AuditService;
@@ -34,6 +35,7 @@ public class AuditController {
      * Endpoint to create a new audit event.
      * Requires valid DTO fields and returns HTTP 201 Created on success.
      */
+    @PreAuthorize("hasAuthority(\'SCOPE_audit:write\')")
     @PostMapping
     public ResponseEntity<AuditEventResponse> createEvent(@Valid @RequestBody AuditEventRequest request) {
         AuditEventResponse response = auditService.createAuditEvent(request);
@@ -43,6 +45,7 @@ public class AuditController {
     /**
      * Endpoint to query and filter audit events.
      */
+    @PreAuthorize("hasAuthority(\'SCOPE_audit:read\')")
     @GetMapping
     public ResponseEntity<PagedResponse<AuditEventResponse>> getEvents(
             @RequestParam(required = false) String actorId,

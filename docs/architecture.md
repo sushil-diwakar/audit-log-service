@@ -74,7 +74,7 @@ High-throughput ingestion is managed via **Optimistic Concurrency Control (OCC)*
 MySQL strictly enforces a unique constraint on `previous_hash`. If two threads concurrently attempt to append to the same chain tip, one will succeed and the other will trigger a `DataIntegrityViolationException`. `AuditService` gracefully catches this and automatically retries the operation, dynamically fetching the new tip and re-syncing the append order safely.
 
 ## 15. Security and Production-Readiness Considerations
-- **Immutability Limits**: The internal hash chain guarantees tamper-evidence. However, it cannot prevent a rogue DBA from truncating the end of the table. Production readiness requires periodically anchoring the `globalChainTipHash` to an external trusted entity (e.g., a public blockchain, AWS QLDB, or a daily published receipt).
+- **Immutability Limits**: The internal hash chain guarantees tamper-evidence. However, it cannot prevent a rogue DBA from truncating the end of the table. Production readiness requires periodically anchoring the `globalChainTipHash` to an external trusted entity (e.g., a public cryptographic hash chain, AWS QLDB, or a daily published receipt).
 - **Error Handling**: A centralized `GlobalExceptionHandler` masks internal stack traces while providing predictable, typed JSON errors for validation faults.
 
 ## 16. Known Limitations
@@ -87,8 +87,11 @@ MySQL strictly enforces a unique constraint on `previous_hash`. If two threads c
 The application implements a stateless API security model dictated by Spring profiles to strictly separate developer experience from production posture.
 
 ### Profile-Based Security Splits
-1. **DEV Profile (DevSecurityConfig)**: Exposes HTTP Basic Authentication. Credentials are configurable via environment variables (DEV_USER / DEV_PASSWORD) to avoid exposing hardcoded credentials in the repository while keeping local testing simple.
+1. **DEV Profile (DevSecurityConfig)**: Exposes HTTP Basic Authentication. Credentials are configurable via environment variables (DEV_USER / DEV_PASSWORD) to avoid exposing hardcoded credentials in the repository while keeping local testing simple. The default dev user is automatically granted required operational scopes/authorities.
 2. **PROD Profile (ProdSecurityConfig)**: Acts as an OAuth2 Resource Server. It enforces stateless JWT validation. Note that Spring Security performs issuer/JWK discovery during application initialization, requiring outbound network connectivity to the IDP at startup. Once the keys are cached, per-request signature validation is mathematically offline. The OIDC issuer and JWK URIs are externalized (OIDC_ISSUER_URI), ensuring no hardcoded keys or vendor-specific integrations exist in the source code. It additionally implements explicit audience validation via the AudienceValidator.
+
+### Authorization & Scope Invariants
+Authentication alone does not grant access. The service employs fine-grained Role-Based Access Control (scope-based authorization) via @PreAuthorize. All endpoints mandate explicitly mapped OAuth scopes (e.g. SCOPE_audit:read, SCOPE_audit:write, SCOPE_audit:redact, SCOPE_audit:archive, SCOPE_audit:export, SCOPE_audit:verify). The system rejects valid JWTs lacking the required regulatory scope with a 403 Forbidden.
 
 ### CORS Strategy
 CORS is profile-specific.

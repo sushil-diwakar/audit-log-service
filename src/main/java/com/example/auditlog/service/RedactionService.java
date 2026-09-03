@@ -24,6 +24,7 @@ public class RedactionService {
 
     private final AuditRecordRepository auditRecordRepository;
     private final ObjectMapper objectMapper;
+    private final HashService hashService;
 
     @Transactional
     public RedactionResponse redactRecord(UUID id, RedactionRequest request) {
@@ -80,6 +81,7 @@ public class RedactionService {
         // Apply changes
         record.setPayload(payloadCopy);
         record.setStatus(AuditRecordStatus.REDACTED);
+        record.setRedactionDigest(hashService.calculateRedactionDigest(record.getContentHash(), payloadCopy));
         
         auditRecordRepository.save(record);
 

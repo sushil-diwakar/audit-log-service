@@ -14,6 +14,10 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 
 @Configuration
 @EnableWebSecurity
@@ -22,6 +26,23 @@ public class DevSecurityConfig {
 
     @Value("${audit.cors.allowed-origins}")
     private List<String> allowedOrigins;
+
+    @Value("${spring.security.user.name:admin}")
+    private String devUsername;
+
+    @Value("${spring.security.user.password:admin}")
+    private String devPassword;
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        UserDetails admin = User.builder()
+            .username(devUsername)
+            .password("{noop}" + devPassword)
+            .authorities("SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify")
+            .build();
+        return new InMemoryUserDetailsManager(admin);
+    }
+
 
     @Bean
     public SecurityFilterChain devSecurityFilterChain(HttpSecurity http) throws Exception {

@@ -62,6 +62,10 @@ public class AuditRecord {
     @Column(length = 64)
     private String recordHash;
 
+    @Column(name = "redaction_digest", length = 64)
+    private String redactionDigest;
+
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

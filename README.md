@@ -1,228 +1,441 @@
-# AI-Assisted Software Engineering System — Audit Log Service
+# Audit Log Service
 
-A tamper-evident, append-only audit log service backend prototype built with **Java 21**, **Spring Boot 3.x**, and **MySQL 8**.
 
-## Project Purpose
 
-The primary objective of this service is to provide an immutable, cryptographically verifiable, append-only audit logging mechanism for sensitive operations within enterprise systems. The service ensures data integrity through cryptographic hash chaining, supports structured redaction without breaking chain integrity, enforces retention policies, and provides rich filtering, pagination, and export capabilities.
+A lightweight, cryptographically verifiable, append-only audit ledger built with Spring Boot.
 
-## Technology Stack
 
-- **Runtime & Language**: Java 21 LTS
-- **Framework**: Spring Boot 3.3.3
-- **Data Persistence**: Spring Data JPA / Hibernate
-- **Database**: MySQL 8 (local installation; no Docker)
-- **Validation**: Jakarta Bean Validation API
-- **API Documentation**: Springdoc OpenAPI 2.x (Swagger UI)
-- **Utilities**: Project Lombok
-- **Testing**: JUnit 5, Mockito, Spring Boot Test Starter
-- **Build Tool**: Apache Maven
 
-## Project Structure
+This project implements a compliance-grade audit logging Audit Log Service designed for security and regulatory environments. It utilizes a continuous cryptographic hash-chain (similar to a cryptographic hash chain) to mathematically guarantee the integrity of all logged events and definitively detect unauthorized tampering.
 
-```text
-com.example.auditlog
-├── controller    # REST API endpoints & request routing
-├── service       # Core business logic & interfaces
-├── repository    # Spring Data JPA repositories & database access
-├── entity        # JPA domain models / database entities
-├── dto           # Data Transfer Objects for API requests/responses
-├── exception     # Custom exception classes & global exception handlers
-├── config        # Spring configurations (OpenAPI, security, etc.)
-└── util          # Helper utilities (hashing, canonicalization, etc.)
-```
 
-## Local Setup & Configuration
 
-### Prerequisites
-- **Java Development Kit (JDK)** 21 installed and configured on your `PATH`.
-- **Apache Maven** 3.9+ installed.
-- **MySQL 8 Server** installed and running locally on `localhost:3306`.
+## Setup Instructions
 
-### Database Preparation
 
-Ensure the target database exists in your local MySQL instance:
 
-```sql
-CREATE DATABASE IF NOT EXISTS auditdb CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+**Prerequisites:**
 
-### Environment Variables
+- Java 21+
 
-Database credentials and host parameters are supplied securely via environment variables. Never commit actual passwords to version control.
+- Maven 3.9+
 
-| Environment Variable | Description | Default / Example Value | Required |
-| :--- | :--- | :--- | :--- |
-| `DB_USERNAME` | Local MySQL username | `your_mysql_username` (e.g., `root`) | **Yes** |
-| `DB_PASSWORD` | Local MySQL password | `your_mysql_password` | **Yes** |
-| `DB_HOST` | MySQL server host | `localhost` | No |
-| `DB_PORT` | MySQL server port | `3306` | No |
-| `DB_NAME` | MySQL database name | `auditdb` | No |
-| `DB_URL` | Override full JDBC URL | *(Derived from host/port/name)* | No |
-| `PORT` | Application HTTP server port | `8080` | No |
-| `JPA_DDL_AUTO` | Hibernate DDL mode | `update` | No |
-| `SHOW_SQL` | Log SQL queries | `false` | No |
+- MySQL 8.0+
 
-### Setting Environment Variables Locally
 
-#### Windows (PowerShell)
-```powershell
-$env:DB_USERNAME="<your_username>"
-$env:DB_PASSWORD="<your_password>"
-```
 
-#### Windows (Command Prompt)
-```cmd
-set DB_USERNAME=<your_username>
-set DB_PASSWORD=<your_password>
-```
+1. Create a MySQL database named udit_db.
 
-#### macOS / Linux (Bash / Zsh)
-```bash
-export DB_USERNAME="<your_username>"
-export DB_PASSWORD="<your_password>"
-```
+   `sql
 
----
+   CREATE DATABASE audit_db;
 
-## Build & Run
+   `
 
-1. **Compile and Run Tests** (verifies local MySQL connectivity):
-   ```bash
-   mvn clean test
-   ```
+2. Set your environment variables (or rely on the defaults in pplication.yml):
 
-2. **Run Application**:
-   ```bash
+   `
+
+   SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/audit_db
+
+   SPRING_DATASOURCE_USERNAME=root
+
+   SPRING_DATASOURCE_PASSWORD=yourpassword
+
+   `
+
+3. Run the application:
+
+   `ash
+
    mvn spring-boot:run
-   ```
 
-3. **Access API Documentation (Swagger UI)**:
-   Once the application is running, open:
-   [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+   `
 
-   **How to Test via Swagger UI:**
-   - **When using the dev profile:** The Swagger UI loads without credentials. When you click **Try it out** and **Execute** on any protected endpoint (like /audit/events), your web browser will intercept the 401 Unauthorized response and present a native pop-up prompting for a Username and Password. Enter admin / admin (or your configured DEV_USER / DEV_PASSWORD) to execute the request.
-   - **When using the prod profile:** Swagger UI does not natively prompt for OIDC Bearer tokens. To test the prod profile via Swagger UI, you will need to use a browser extension (like ModHeader) to manually inject the Authorization: Bearer <your-jwt> header, or test the endpoints using Postman / cURL.
+4. Access the Swagger UI for API exploration and interactive testing:
+
+   http://localhost:8080/swagger-ui/index.html
+
+
+
+### How to test using Swagger UI
+
+
+
+1. Open the Swagger UI link in your browser.
+
+2. Click the **Authorize** button (the padlock icon at the top right).
+
+3. The application is configured to run in the dev profile by default. Enter the default credentials:
+
+   - **Username**: dmin
+
+   - **Password**: dmin
+
+4. Click **Authorize** and then **Close**.
+
+5. You can now expand any endpoint (e.g., POST /audit/events), click **Try it out**, fill in the request body, and click **Execute**.
+
+
+
+**Important for Production (prod profile) Testing:**
+
+If you run the application with --spring.profiles.active=prod, Basic Auth is disabled. You must obtain a valid JWT from your configured OIDC Issuer, click the **Authorize** button in Swagger, and provide the JWT token (e.g., Bearer eyJhbG...).
+
+
 
 ## Security & Profiles
 
+
+
 This application requires security to access the APIs. The security implementation is profile-driven:
 
+
+
 ### Development Profile (--spring.profiles.active=dev)
+
 - **Security Strategy**: HTTP Basic Authentication
+
 - **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} (defaults to admin/admin if unset).
+
+- **Authorization**: The default user is automatically assigned all required scopes/roles.
+
 - **CORS**: Allows requests from ${DEV_ALLOWED_ORIGINS} (defaults to http://localhost:3000,http://localhost:8080).
+
 - **Rate Limiting**: 100 requests per minute per authenticated principal/IP.
 
+
+
 ### Production Profile (--spring.profiles.active=prod)
+
 - **Security Strategy**: JWT / OAuth2 Resource Server (No Basic Auth).
+
 - **OIDC Configuration**: You must set ${OIDC_ISSUER_URI} and ${OIDC_AUDIENCE} in your environment. Spring Security performs issuer/JWK discovery during application initialization. The application therefore requires connectivity to the configured OIDC issuer/JWK discovery endpoint when initializing the JWT decoder. Once the signing keys are available/cached, individual JWT signature validation does not require a network call for every request. A fully air-gapped environment would require a different key-management/configuration approach and is outside this prototype's scope.
+
+- **Authorization**: Token must include explicitly mapped OAuth scopes (e.g. SCOPE_audit:read, SCOPE_audit:write, SCOPE_audit:redact, SCOPE_audit:archive, SCOPE_audit:export, SCOPE_audit:verify).
+
 - **CORS**: STRICTLY requires ${PROD_ALLOWED_ORIGINS} environment variable. Unrestricted * is not supported.
+
 - **Rate Limiting**: 1000 requests per minute.
 
+
+
 > [!WARNING]
+
 > The rate limiter (Bucket4j) is strictly in-memory and per-instance. It is not distributed across a cluster.
+
+
 
 ## Testing & Code Coverage
 
+
+
 This project uses **JaCoCo** to track test coverage across the application. 
 
-To execute the entire test suite (Unit, Integration, and Security tests) and generate the coverage report, run:
 
-```bash
+
+To execute the entire test suite (Unit, Integration, and Security tests) and generate the coverage report, run the final quality gate:
+
+
+
+`ash
+
 mvn clean verify
-```
+
+`
+
+
+
+**Final Test Results (Quality Gate):**
+
+- **Total Tests Run**: 79
+
+- **Failures**: 0
+
+- **Errors**: 0
+
+- **Skipped**: 0
+
+
+
+**Coverage Metrics:**
+
+- **Instruction Coverage**: 86%
+
+- **Branch Coverage**: 67%
+
+
+
+## Testing & Security Evidence
+
+- Command executed: mvn clean verify
+- Total tests: 79
+- Failures: 0
+- JaCoCo Instruction Coverage: 86%
+- Security-critical authorization and verification paths have focused automated coverage.
+- Authentication tests verify 401s on unauthenticated access.
+- Authorization tests verify 403s on bypass attempts.
+- Redaction tampering tests prove forged DBA overrides are rejected.
+- Chain tampering tests capture payload, record, and structural modifications.
+
+
+
+
 
 **How to view the JaCoCo coverage report:**
-1. After the Maven command completes successfully, navigate to the newly generated `target` directory.
-2. Open the file located at: `target/site/jacoco/index.html`
-3. You can simply double-click the `index.html` file to open it in your web browser (Chrome, Edge, Firefox, etc.).
+
+1. After the Maven command completes successfully, navigate to the newly generated 	arget directory.
+
+2. Open the file located at: 	arget/site/jacoco/index.html
+
+3. You can simply double-click the index.html file to open it in your web browser (Chrome, Edge, Firefox, etc.).
+
 4. The web dashboard will provide a comprehensive breakdown of Instruction, Branch, and Line coverage per package and class.
+
+
 
 ## API Overview
 
+
+
 ### 1. Create Audit Event
-Record a new event into the append-only ledger.
-```bash
+
+Record a new event into the append-only ledger. Requires SCOPE_audit:write.
+
+`ash
+
 curl -X POST http://localhost:8080/audit/events \
+
   -H "Content-Type: application/json" \
+
+  -u admin:admin \
+
   -d '{
+
     "eventType": "LOGIN_SUCCESS",
+
     "actorId": "user-123",
+
     "resourceType": "SYSTEM",
+
     "resourceId": "auth-server",
+
     "payload": {"ip": "192.168.1.50"}
+
   }'
-```
+
+`
+
+
 
 ### 2. Query Audit Events
-Retrieve audit events with optional filtering and pagination.
-```bash
-curl -X GET "http://localhost:8080/audit/events?actorId=user-123&page=0&size=20"
-```
+
+Retrieve audit events with optional filtering and pagination. Requires SCOPE_audit:read.
+
+`ash
+
+curl -X GET "http://localhost:8080/audit/events?actorId=user-123&page=0&size=20" -u admin:admin
+
+`
+
+
 
 ### 3. Redact Audit Event Payload
-Perform structured redaction on specific JSON pointers within a payload. The original content-hash commitment is preserved.
-```bash
+
+Perform structured redaction on specific JSON pointers within a payload. The original content-hash commitment is preserved. Requires SCOPE_audit:redact.
+
+`ash
+
 curl -X POST http://localhost:8080/audit/events/{id}/redact \
+
   -H "Content-Type: application/json" \
+
+  -u admin:admin \
+
   -d '{
+
     "paths": ["/ip"]
+
   }'
-```
+
+`
+
+
 
 ### 4. Archive Old Records (Retention)
-Soft-archive all active records strictly older than the specified cutoff timestamp.
-```bash
-curl -X POST "http://localhost:8080/audit/retention/archive?before=2025-01-01T00:00:00Z"
-```
+
+Soft-archive all active records strictly older than the specified cutoff timestamp. Requires SCOPE_audit:archive.
+
+`ash
+
+curl -X POST "http://localhost:8080/audit/retention/archive?before=2025-01-01T00:00:00Z" -u admin:admin
+
+`
+
+
 
 ### 5. Bulk Export Audit Events
-Export a self-contained, offline-verifiable JSON bundle for a specific resource or actor.
-```bash
-curl -X GET "http://localhost:8080/audit/export?resourceId=auth-server"
-```
+
+Export a self-contained, offline-verifiable JSON bundle for a specific resource or actor. Requires SCOPE_audit:export.
+
+`ash
+
+curl -X GET "http://localhost:8080/audit/export?resourceId=auth-server" -u admin:admin
+
+`
+
+
 
 ### 6. Verify Global Chain Integrity
-Trigger an exhaustive cryptographic verification of the entire database hash-chain.
-```bash
-curl -X GET http://localhost:8080/audit/verify
-```
+
+Trigger an exhaustive cryptographic verification of the entire database hash-chain. Requires SCOPE_audit:verify.
+
+`ash
+
+curl -X GET http://localhost:8080/audit/verify -u admin:admin
+
+`
+
+
 
 ## Scenario Summaries
 
+
+
 ### Scenario A: Core Audit Ledger
-Implemented a strictly append-only audit ledger where each event is cryptographically anchored to the previous event forming a linear hash-chain. We use deterministic SHA-256 content hashing (canonicalizing JSON payloads) to guarantee data integrity. The `GET /audit/verify` endpoint dynamically recalculates hashes across the entire database to detect post-write tampering. Update and delete API operations are strictly prohibited.
+
+Implemented a strictly append-only audit ledger where each event is cryptographically anchored to the previous event forming a linear hash-chain. We use deterministic SHA-256 content hashing (canonicalizing JSON payloads) to guarantee data integrity. The GET /audit/verify endpoint dynamically recalculates hashes across the entire database to detect post-write tampering. Update and delete API operations are strictly prohibited.
+
+
 
 ### Scenario B: Data Lifecycle (Retention, Redaction, Export)
+
 - **Retention**: Records are soft-archived rather than physically deleted to maintain continuous chain integrity.
-- **Structured Redaction**: Granular JSON node redaction replaces targeted data with `{"redacted": true}`. The original `contentHash` is retained as a mathematical commitment.
-- **Bulk Export**: Regulators can export a subset of records. The export logically threads the global chain and provides boundary metadata (`firstExportedRecordPreviousHash`) allowing independent cryptographic verification of the sparse subset.
+
+- **Structured Redaction**: Granular JSON node redaction replaces targeted data with {"redacted": true}. The original contentHash is retained as a mathematical commitment.
+
+- **Bulk Export**: Regulators can export a subset of records. The export logically threads the global chain and provides boundary metadata (irstExportedRecordPreviousHash) allowing independent cryptographic verification of the sparse subset.
+
+
 
 ### Scenario C: Regulatory Compliance Audit
-Analyzed the ambiguous requirement: *"Regulators need to be able to audit access to client account data."* We normalized this by mapping read/write accesses to existing event properties (`eventType=ACCOUNT_READ`, `resourceType=CLIENT_ACCOUNT`). This approach fully satisfied the regulatory requirement natively using the existing query and export APIs without polluting the generic architecture with domain-specific endpoints.
+
+Analyzed the ambiguous requirement: *"Regulators need to be able to audit access to client account data."* We normalized this by mapping read/write accesses to existing event properties (eventType=ACCOUNT_READ, 
+
+esourceType=CLIENT_ACCOUNT). This approach fully satisfied the regulatory requirement natively using the existing query and export APIs without polluting the generic architecture with domain-specific endpoints.
+
+
+
+## Proactive Hardening & Adversarial Defense
+
+
+
+To ensure true non-repudiation and structural resilience against sophisticated internal threats (e.g. compromised DBA accounts), several defense-in-depth measures have been introduced:
+
+
+
+1. **Authorization Hardening**: Authentication alone is no longer enough to perform sensitive operations. Access to endpoints is secured by fine-grained permissions mapping to operations (SCOPE_audit:read, SCOPE_audit:verify, SCOPE_audit:redact, etc.), preventing privilege escalation via standard JWTs lacking regulatory scopes.
+
+2. **Redaction Cryptographic Invariants**: A vulnerability previously existed where a DBA could update an event payload to hide malicious activity, change the database row status to REDACTED, and bypass verification. A new cryptographic commitment, 
+
+edactionDigest, was implemented. It binds the original contentHash to the *redacted* payload mathematically during the application-layer API workflow, ensuring verifiers will catch and reject naive SQL-level REDACTED status overrides.
+
+
 
 ## Tamper-Verification Demonstration
 
-You can locally demonstrate the system's ability to detect unauthorized database tampering:
 
-1. **Start the application** (`mvn spring-boot:run`).
-2. **Create an event**: Use the Create Audit Event `curl` command above. Note the generated ID.
-3. **Verify Intact Chain**: Run `curl -X GET http://localhost:8080/audit/verify`. You will see `"valid": true` and `"message": "Audit chain is intact"`.
-4. **Tamper via SQL**: Connect to your local MySQL database and modify the payload directly:
-   ```sql
-   UPDATE audit_records SET payload = '{"ip": "9.9.9.9"}' WHERE actor_id = 'user-123';
-   ```
-5. **Detect Tampering**: Run `curl -X GET http://localhost:8080/audit/verify` again.
-6. **Expected Result**: The system will return a `200 OK` response with `"valid": false` and `"violationType": "CONTENT_HASH_MISMATCH"`. This mathematically proves the post-write database manipulation was caught.
+
+You can locally demonstrate the system's ability to detect unauthorized database tampering.
+
+
+
+1. **Start the application** (mvn spring-boot:run).
+
+2. **Create an event**: Use the Create Audit Event curl command above. Note the generated ID.
+
+3. **Verify Intact Chain**: Run curl -X GET http://localhost:8080/audit/verify -u admin:admin. You will see "valid": true and "message": "Audit chain is intact".
+
+
+
+Now, connect to your local MySQL database and run these safe demonstrations (one by one, restoring after each, or observe the failure):
+
+
+
+**A. Payload Tampering**
+
+`sql
+
+UPDATE audit_records SET payload = '{"ip": "9.9.9.9"}' WHERE actor_id = 'user-123';
+
+`
+
+*Expected Violation*: CONTENT_HASH_MISMATCH - The payload no longer matches the contentHash.
+
+
+
+**B. RecordHash Tampering**
+
+`sql
+
+UPDATE audit_records SET record_hash = 'tampered' WHERE actor_id = 'user-123';
+
+`
+
+*Expected Violation*: RECORD_HASH_MISMATCH - The structural hash combining the content and previous hash is corrupted.
+
+
+
+**C. PreviousHash Tampering (Breaking the Chain)**
+
+`sql
+
+UPDATE audit_records SET previous_hash = 'broken' WHERE actor_id = 'user-123';
+
+`
+
+*Expected Violation*: BROKEN_LINKAGE or MULTIPLE_GENESIS - The topological graph can no longer connect this record to the rest of the chain.
+
+
+
+**D. Forged REDACTED Status Without Digest**
+
+`sql
+
+UPDATE audit_records SET status = 'REDACTED', payload = '{"redacted": true}' WHERE actor_id = 'user-123';
+
+`
+
+*Expected Violation*: REDACTION_METADATA_MISMATCH - The verifier expects a mathematical proof binding the original payload hash to this redaction, but none exists.
+
+
+
+**E. Invalid RedactionDigest**
+
+`sql
+
+UPDATE audit_records SET status = 'REDACTED', payload = '{"redacted": true}', redaction_digest = 'forged123' WHERE actor_id = 'user-123';
+
+`
+
+*Expected Violation*: REDACTION_METADATA_MISMATCH - The provided digest does not match the computed SHA-256(originalContentHash + "|REDACTED|" + payloadString).
+
+
+
+
 
 ## Known Limitations / Prototype vs. Production
 
+
+
 This prototype strictly addresses the core cryptographic mechanisms. In a production environment, the following limitations must be addressed:
-* **Memory Pressure**: The export and verification services currently load the entire chain into memory (`findAll()`) to build a topological map. For very large datasets, this will cause Out-Of-Memory (OOM) errors. Production would require streaming or Recursive CTEs.
-* **Security & IAM**: Authentication and authorization are intentionally out of scope. A production deployment requires an API Gateway or Spring Security integration.
+
+* **Memory Pressure**: The export and verification services currently load the entire chain into memory (indAll()) to build a topological map. For very large datasets, this will cause Out-Of-Memory (OOM) errors. Production would require streaming or Recursive CTEs.
+
 * **Completeness Trust Boundary**: The audit ledger cryptographically guarantees the integrity of events *it receives*. However, if an upstream system has a bug and fails to emit an event, the ledger will be blind to it. We cannot mathematically guarantee global real-world completeness.
-* **Truncation/Rewrite**: An internal hash-chain ensures internal consistency. However, a malicious DBA could delete the tail of the chain entirely. Preventing tail-truncation requires periodically anchoring the `globalChainTipHash` to an external trusted immutable ledger (which is out of scope here).
-* **Configuration**: Prototype database credentials (e.g., default `root`) must be externalized to a secure vault for production.
-* **Redaction Re-hashing**: While redacted records preserve the original `contentHash` commitment, the original plaintext payload is permanently overwritten. Independent offline auditors cannot fully re-verify the hash of redacted records without out-of-band access to the original plaintext.
+
+* **Truncation/Rewrite**: An internal hash-chain ensures internal consistency. However, a malicious DBA could delete the tail of the chain entirely. Preventing tail-truncation requires periodically anchoring the globalChainTipHash to an external trusted immutable ledger (which is out of scope here).
+
+* **Configuration**: Prototype database credentials (e.g., default 
+
+oot) must be externalized to a secure vault for production.
