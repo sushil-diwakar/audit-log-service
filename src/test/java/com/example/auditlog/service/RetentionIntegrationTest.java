@@ -18,7 +18,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@SpringBootTest(properties = {"DEV_USER=test", "DEV_PASSWORD=test"})
 @ActiveProfiles("dev")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 public class RetentionIntegrationTest {

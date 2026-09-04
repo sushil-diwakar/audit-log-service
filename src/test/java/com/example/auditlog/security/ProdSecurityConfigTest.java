@@ -14,7 +14,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties = {"OIDC_ISSUER_URI=https://mock.issuer", "OIDC_AUDIENCE=mock-audience", "PROD_ALLOWED_ORIGINS=http://localhost:3000"})
+@SpringBootTest(properties = {
+    "DEV_USER=test", "DEV_PASSWORD=test","OIDC_ISSUER_URI=https://mock.issuer", "OIDC_AUDIENCE=mock-audience", "PROD_ALLOWED_ORIGINS=http://localhost:3000"})
 @AutoConfigureMockMvc
 @ActiveProfiles("prod")
 public class ProdSecurityConfigTest {

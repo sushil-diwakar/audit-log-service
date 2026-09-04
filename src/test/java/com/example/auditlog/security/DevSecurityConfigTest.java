@@ -11,7 +11,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {"DEV_USER=devtest", "DEV_PASSWORD=devpass"})
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
 public class DevSecurityConfigTest {
@@ -33,7 +33,7 @@ public class DevSecurityConfigTest {
 
     @Test
     void requestWithValidAuth_Returns200() throws Exception {
-        mockMvc.perform(get("/audit/events").with(httpBasic("admin", "admin")))
+        mockMvc.perform(get("/audit/events").with(httpBasic("devtest", "devpass")))
                 .andExpect(status().isOk());
     }
 }

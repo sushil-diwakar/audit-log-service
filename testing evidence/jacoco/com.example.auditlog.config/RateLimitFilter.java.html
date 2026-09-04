@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RateLimitFilter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.config</a> &gt; <span class="el_source">RateLimitFilter.java</span></div><h1>RateLimitFilter.java</h1><pre class="source lang-java linenums">package com.example.auditlog.config;
+
+import io.github.bucket4j.Bandwidth;
+import io.github.bucket4j.Bucket;
+import io.github.bucket4j.Refill;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Component
+<span class="fc" id="L23">public class RateLimitFilter extends OncePerRequestFilter {</span>
+
+<span class="fc" id="L25">    private final Map&lt;String, Bucket&gt; buckets = new ConcurrentHashMap&lt;&gt;();</span>
+
+    @Value(&quot;${audit.rate-limit.capacity:100}&quot;)
+    private long capacity;
+
+    @Value(&quot;${audit.rate-limit.refill-tokens:100}&quot;)
+    private long refillTokens;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+            throws ServletException, IOException {
+
+        // Skip rate limiting for CORS preflight
+<span class="pc bpc" id="L38" title="1 of 2 branches missed.">        if (&quot;OPTIONS&quot;.equalsIgnoreCase(request.getMethod())) {</span>
+<span class="nc" id="L39">            filterChain.doFilter(request, response);</span>
+<span class="nc" id="L40">            return;</span>
+        }
+
+<span class="fc" id="L43">        String key = resolveKey(request);</span>
+<span class="fc" id="L44">        Bucket bucket = buckets.computeIfAbsent(key, this::createNewBucket);</span>
+
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        if (bucket.tryConsume(1)) {</span>
+<span class="fc" id="L47">            filterChain.doFilter(request, response);</span>
+        } else {
+<span class="fc" id="L49">            response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span>
+<span class="fc" id="L50">            response.setContentType(&quot;application/json&quot;);</span>
+<span class="fc" id="L51">            response.getWriter().write(&quot;{\&quot;error\&quot;: \&quot;Too Many Requests\&quot;}&quot;);</span>
+        }
+<span class="fc" id="L53">    }</span>
+
+    private String resolveKey(HttpServletRequest request) {
+<span class="fc" id="L56">        Authentication auth = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L57" title="3 of 6 branches missed.">        if (auth != null &amp;&amp; auth.isAuthenticated() &amp;&amp; !auth.getPrincipal().equals(&quot;anonymousUser&quot;)) {</span>
+<span class="fc" id="L58">            return auth.getName();</span>
+        }
+<span class="nc" id="L60">        String ip = request.getHeader(&quot;X-Forwarded-For&quot;);</span>
+<span class="nc bnc" id="L61" title="All 4 branches missed.">        if (ip == null || ip.isBlank()) {</span>
+<span class="nc" id="L62">            ip = request.getRemoteAddr();</span>
+        }
+<span class="nc" id="L64">        return ip;</span>
+    }
+
+    private Bucket createNewBucket(String key) {
+<span class="fc" id="L68">        Refill refill = Refill.greedy(refillTokens, Duration.ofMinutes(1));</span>
+<span class="fc" id="L69">        Bandwidth limit = Bandwidth.classic(capacity, refill);</span>
+<span class="fc" id="L70">        return Bucket.builder().addLimit(limit).build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
+    "DEV_USER=test", "DEV_PASSWORD=test",
     "audit.rate-limit.capacity=2",
     "audit.rate-limit.refill-tokens=2"
 })

@@ -169,9 +169,9 @@ mvn clean verify
 ## Testing & Security Evidence
 
 - Command executed: mvn clean verify
-- Total tests: 79
+- Total tests: 82
 - Failures: 0
-- JaCoCo Instruction Coverage: 86%
+- JaCoCo Instruction Coverage: 87%
 - Security-critical authorization and verification paths have focused automated coverage.
 - Authentication tests verify 401s on unauthenticated access.
 - Authorization tests verify 403s on bypass attempts.

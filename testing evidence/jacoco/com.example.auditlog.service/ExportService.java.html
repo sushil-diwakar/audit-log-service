@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExportService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">ExportService.java</span></div><h1>ExportService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+import com.example.auditlog.dto.ExportBundle;
+import com.example.auditlog.dto.ExportMetadata;
+import com.example.auditlog.dto.ExportRecord;
+import com.example.auditlog.entity.AuditRecord;
+import com.example.auditlog.repository.AuditRecordRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class ExportService {
+
+    private final AuditRecordRepository auditRecordRepository;
+
+    @Transactional(readOnly = true)
+    public ExportBundle export(String actorId, String resourceId) {
+<span class="pc bpc" id="L28" title="2 of 8 branches missed.">        if ((actorId == null || actorId.isBlank()) &amp;&amp; (resourceId == null || resourceId.isBlank())) {</span>
+<span class="fc" id="L29">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;At least one of actorId or resourceId must be provided&quot;);</span>
+        }
+
+        // Fetch all records to guarantee perfect topological order traversal
+<span class="fc" id="L33">        List&lt;AuditRecord&gt; allRecords = auditRecordRepository.findAll();</span>
+        
+<span class="pc bpc" id="L35" title="1 of 2 branches missed.">        if (allRecords.isEmpty()) {</span>
+<span class="nc" id="L36">            return buildEmptyBundle(actorId, resourceId);</span>
+        }
+
+<span class="fc" id="L39">        Map&lt;String, AuditRecord&gt; byPreviousHash = allRecords.stream()</span>
+<span class="fc" id="L40">                .collect(Collectors.toMap(AuditRecord::getPreviousHash, r -&gt; r));</span>
+
+<span class="fc" id="L42">        List&lt;ExportRecord&gt; matchingRecords = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L43">        AuditRecord current = byPreviousHash.get(AuditService.GENESIS_HASH);</span>
+
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        while (current != null) {</span>
+<span class="fc bfc" id="L46" title="All 4 branches covered.">            boolean matchesActor = actorId == null || actorId.equals(current.getActorId());</span>
+<span class="fc bfc" id="L47" title="All 4 branches covered.">            boolean matchesResource = resourceId == null || resourceId.equals(current.getResourceId());</span>
+
+<span class="fc bfc" id="L49" title="All 4 branches covered.">            if (matchesActor &amp;&amp; matchesResource) {</span>
+<span class="fc" id="L50">                matchingRecords.add(mapToExportRecord(current));</span>
+            }
+
+<span class="fc" id="L53">            current = byPreviousHash.get(current.getRecordHash());</span>
+<span class="fc" id="L54">        }</span>
+
+<span class="fc" id="L56">        String globalTipHash = auditRecordRepository.findCurrentChainHead()</span>
+<span class="fc" id="L57">                .map(AuditRecord::getRecordHash)</span>
+<span class="fc" id="L58">                .orElse(AuditService.GENESIS_HASH);</span>
+
+<span class="fc" id="L60">        ExportMetadata metadata = ExportMetadata.builder()</span>
+<span class="fc" id="L61">                .generatedAt(Instant.now())</span>
+<span class="fc" id="L62">                .query(ExportMetadata.QueryFilter.builder()</span>
+<span class="fc" id="L63">                        .actorId(actorId)</span>
+<span class="fc" id="L64">                        .resourceId(resourceId)</span>
+<span class="fc" id="L65">                        .build())</span>
+<span class="fc" id="L66">                .recordCount(matchingRecords.size())</span>
+<span class="fc bfc" id="L67" title="All 2 branches covered.">                .firstExportedRecordPreviousHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getPreviousHash())</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">                .firstExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getRecordHash())</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                .lastExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(matchingRecords.size() - 1).getRecordHash())</span>
+<span class="fc" id="L70">                .globalChainTipHash(globalTipHash)</span>
+<span class="fc" id="L71">                .build();</span>
+
+<span class="fc" id="L73">        return ExportBundle.builder()</span>
+<span class="fc" id="L74">                .metadata(metadata)</span>
+<span class="fc" id="L75">                .records(matchingRecords)</span>
+<span class="fc" id="L76">                .build();</span>
+    }
+
+    private ExportBundle buildEmptyBundle(String actorId, String resourceId) {
+<span class="nc" id="L80">        return ExportBundle.builder()</span>
+<span class="nc" id="L81">                .metadata(ExportMetadata.builder()</span>
+<span class="nc" id="L82">                        .generatedAt(Instant.now())</span>
+<span class="nc" id="L83">                        .query(ExportMetadata.QueryFilter.builder()</span>
+<span class="nc" id="L84">                                .actorId(actorId)</span>
+<span class="nc" id="L85">                                .resourceId(resourceId)</span>
+<span class="nc" id="L86">                                .build())</span>
+<span class="nc" id="L87">                        .recordCount(0)</span>
+<span class="nc" id="L88">                        .globalChainTipHash(AuditService.GENESIS_HASH)</span>
+<span class="nc" id="L89">                        .build())</span>
+<span class="nc" id="L90">                .records(new ArrayList&lt;&gt;())</span>
+<span class="nc" id="L91">                .build();</span>
+    }
+
+    private ExportRecord mapToExportRecord(AuditRecord record) {
+<span class="fc" id="L95">        return ExportRecord.builder()</span>
+<span class="fc" id="L96">                .id(record.getId())</span>
+<span class="fc" id="L97">                .eventType(record.getEventType())</span>
+<span class="fc" id="L98">                .actorId(record.getActorId())</span>
+<span class="fc" id="L99">                .resourceType(record.getResourceType())</span>
+<span class="fc" id="L100">                .resourceId(record.getResourceId())</span>
+<span class="fc" id="L101">                .payload(record.getPayload())</span>
+<span class="fc" id="L102">                .timestamp(record.getTimestamp())</span>
+<span class="fc" id="L103">                .status(record.getStatus())</span>
+<span class="fc" id="L104">                .contentHash(record.getContentHash())</span>
+<span class="fc" id="L105">                .previousHash(record.getPreviousHash())</span>
+<span class="fc" id="L106">                .recordHash(record.getRecordHash())</span>
+<span class="fc" id="L107">                .build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

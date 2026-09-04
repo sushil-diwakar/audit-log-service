@@ -1,11 +1,11 @@
-﻿spring:
+spring:
   config:
     activate:
       on-profile: dev
   security:
     user:
-      name: ${DEV_USER:admin}
-      password: ${DEV_PASSWORD:admin}
+      name: ${DEV_USER}
+      password: ${DEV_PASSWORD}
 
 audit:
   cors:

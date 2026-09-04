@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RetentionController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.controller</a> &gt; <span class="el_source">RetentionController.java</span></div><h1>RetentionController.java</h1><pre class="source lang-java linenums">package com.example.auditlog.controller;
+
+import com.example.auditlog.dto.ArchivalResponse;
+import org.springframework.security.access.prepost.PreAuthorize;
+import com.example.auditlog.service.RetentionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.Instant;
+
+@RestController
+@RequestMapping(&quot;/audit/retention&quot;)
+@RequiredArgsConstructor
+public class RetentionController {
+
+    private final RetentionService retentionService;
+
+    /**
+     * Endpoint to soft-archive audit records older than a specific event timestamp.
+     * 
+     * @param before The cutoff ISO-8601 timestamp. E.g., 2024-01-01T00:00:00Z
+     */
+    @PreAuthorize(&quot;hasAuthority(\'SCOPE_audit:archive\')&quot;)
+    @PostMapping(&quot;/archive&quot;)
+    public ResponseEntity&lt;ArchivalResponse&gt; archive(@RequestParam(&quot;before&quot;) Instant before) {
+<span class="fc" id="L30">        ArchivalResponse response = retentionService.archiveRecordsBefore(before);</span>
+<span class="fc" id="L31">        return ResponseEntity.ok(response);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

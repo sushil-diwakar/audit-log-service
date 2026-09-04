@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RedactionService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">RedactionService.java</span></div><h1>RedactionService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+import com.example.auditlog.dto.RedactionRequest;
+import com.example.auditlog.dto.RedactionResponse;
+import com.example.auditlog.entity.AuditRecord;
+import com.example.auditlog.entity.AuditRecordStatus;
+import com.example.auditlog.repository.AuditRecordRepository;
+import com.fasterxml.jackson.core.JsonPointer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class RedactionService {
+
+    private final AuditRecordRepository auditRecordRepository;
+    private final ObjectMapper objectMapper;
+    private final HashService hashService;
+
+    @Transactional
+    public RedactionResponse redactRecord(UUID id, RedactionRequest request) {
+<span class="fc" id="L31">        AuditRecord record = auditRecordRepository.findById(id)</span>
+<span class="fc" id="L32">                .orElseThrow(() -&gt; new ResponseStatusException(HttpStatus.NOT_FOUND, &quot;Audit record not found&quot;));</span>
+
+<span class="fc bfc" id="L34" title="All 2 branches covered.">        if (record.getStatus() == AuditRecordStatus.REDACTED) {</span>
+<span class="fc" id="L35">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Record is already redacted&quot;);</span>
+        }
+
+<span class="fc" id="L38">        JsonNode payloadCopy = record.getPayload().deepCopy();</span>
+<span class="fc" id="L39">        List&lt;JsonPointer&gt; validPointers = new java.util.ArrayList&lt;&gt;();</span>
+
+        // 1. Validate all paths strictly before applying any mutations
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        for (String pathStr : request.getPaths()) {</span>
+            JsonPointer pointer;
+            try {
+<span class="fc" id="L45">                pointer = JsonPointer.compile(pathStr);</span>
+<span class="fc" id="L46">            } catch (IllegalArgumentException e) {</span>
+<span class="fc" id="L47">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Invalid JSON Pointer: &quot; + pathStr);</span>
+<span class="fc" id="L48">            }</span>
+
+<span class="fc bfc" id="L50" title="All 2 branches covered.">            if (payloadCopy.at(pointer).isMissingNode()) {</span>
+<span class="fc" id="L51">                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;Path not found: &quot; + pathStr);</span>
+            }
+            
+<span class="fc" id="L54">            validPointers.add(pointer);</span>
+<span class="fc" id="L55">        }</span>
+
+        // 2. Perform all-or-nothing mutations
+<span class="fc" id="L58">        ObjectNode redactedMarker = objectMapper.createObjectNode();</span>
+<span class="fc" id="L59">        redactedMarker.put(&quot;redacted&quot;, true);</span>
+
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        for (JsonPointer pointer : validPointers) {</span>
+<span class="fc" id="L62">            JsonPointer parentPointer = pointer.head();</span>
+<span class="fc" id="L63">            String leafName = pointer.last().getMatchingProperty();</span>
+            
+<span class="pc bpc" id="L65" title="2 of 4 branches missed.">            if (parentPointer == null || leafName == null) {</span>
+                // If it's the root being redacted (unlikely, but supported)
+<span class="nc" id="L67">                payloadCopy = redactedMarker;</span>
+            } else {
+<span class="fc" id="L69">                JsonNode parentNode = payloadCopy.at(parentPointer);</span>
+<span class="pc bpc" id="L70" title="1 of 2 branches missed.">                if (parentNode.isObject()) {</span>
+<span class="fc" id="L71">                    ((ObjectNode) parentNode).set(leafName, redactedMarker);</span>
+<span class="nc bnc" id="L72" title="All 2 branches missed.">                } else if (parentNode.isArray()) {</span>
+<span class="nc" id="L73">                    int index = pointer.last().getMatchingIndex();</span>
+<span class="nc bnc" id="L74" title="All 2 branches missed.">                    if (index &gt;= 0) {</span>
+<span class="nc" id="L75">                        ((com.fasterxml.jackson.databind.node.ArrayNode) parentNode).set(index, redactedMarker);</span>
+                    }
+                }
+            }
+<span class="fc" id="L79">        }</span>
+
+        // Apply changes
+<span class="fc" id="L82">        record.setPayload(payloadCopy);</span>
+<span class="fc" id="L83">        record.setStatus(AuditRecordStatus.REDACTED);</span>
+<span class="fc" id="L84">        record.setRedactionDigest(hashService.calculateRedactionDigest(record.getContentHash(), payloadCopy));</span>
+        
+<span class="fc" id="L86">        auditRecordRepository.save(record);</span>
+
+<span class="fc" id="L88">        return RedactionResponse.builder()</span>
+<span class="fc" id="L89">                .recordId(record.getId())</span>
+<span class="fc" id="L90">                .status(record.getStatus())</span>
+<span class="fc" id="L91">                .redactedPaths(request.getPaths())</span>
+<span class="fc" id="L92">                .build();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

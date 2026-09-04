@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>HashService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">HashService.java</span></div><h1>HashService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+import com.example.auditlog.entity.AuditRecord;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Map;
+import java.util.TreeMap;
+
+@Service
+@RequiredArgsConstructor
+public class HashService {
+
+    private final ObjectMapper mapper;
+
+    /**
+     * Calculates a deterministic SHA-256 hash for the given AuditRecord.
+     * Excludes database-generated and mutability fields like id, status, createdAt, previousHash, and recordHash.
+     */
+    public String calculateContentHash(AuditRecord record) {
+        try {
+            // Use TreeMap to ensure properties are canonically ordered alphabetically by key
+<span class="fc" id="L31">            TreeMap&lt;String, Object&gt; canonicalMap = new TreeMap&lt;&gt;();</span>
+            
+<span class="fc" id="L33">            canonicalMap.put(&quot;actorId&quot;, record.getActorId());</span>
+<span class="fc" id="L34">            canonicalMap.put(&quot;eventType&quot;, record.getEventType());</span>
+<span class="fc" id="L35">            canonicalMap.put(&quot;resourceId&quot;, record.getResourceId());</span>
+<span class="fc" id="L36">            canonicalMap.put(&quot;resourceType&quot;, record.getResourceType());</span>
+            
+            // Format timestamp as a consistent ISO-8601 string, or explicit null
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">            canonicalMap.put(&quot;timestamp&quot;, record.getTimestamp() != null ? record.getTimestamp().toString() : null);</span>
+            
+            // Deeply canonicalize the payload to ensure deterministic key ordering
+<span class="fc" id="L42">            canonicalMap.put(&quot;payload&quot;, canonicalizeNode(record.getPayload()));</span>
+
+            // Serialize the strictly ordered map to a JSON string
+<span class="fc" id="L45">            String canonicalString = mapper.writeValueAsString(canonicalMap);</span>
+
+            // Hash the canonical string
+<span class="fc" id="L48">            MessageDigest digest = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L49">            byte[] hashBytes = digest.digest(canonicalString.getBytes(StandardCharsets.UTF_8));</span>
+
+<span class="fc" id="L51">            return bytesToHex(hashBytes);</span>
+
+<span class="nc" id="L53">        } catch (NoSuchAlgorithmException | JsonProcessingException e) {</span>
+<span class="nc" id="L54">            throw new IllegalStateException(&quot;Failed to calculate content hash&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Calculates the final record hash by chaining the content hash with the previous record's hash.
+     */
+    public String calculateRecordHash(String contentHash, String previousHash) {
+        try {
+<span class="fc" id="L63">            String combined = contentHash + &quot;|&quot; + previousHash;</span>
+<span class="fc" id="L64">            MessageDigest digest = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L65">            byte[] hashBytes = digest.digest(combined.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L66">            return bytesToHex(hashBytes);</span>
+<span class="nc" id="L67">        } catch (NoSuchAlgorithmException e) {</span>
+<span class="nc" id="L68">            throw new IllegalStateException(&quot;Failed to calculate record hash&quot;, e);</span>
+        }
+    }
+
+    /**
+     * Recursively sorts the fields of a JSON object to ensure deterministic representation.
+     */
+    private JsonNode canonicalizeNode(JsonNode node) {
+<span class="pc bpc" id="L76" title="2 of 4 branches missed.">        if (node == null || node.isNull()) {</span>
+<span class="nc" id="L77">            return mapper.nullNode();</span>
+        }
+
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (node.isObject()) {</span>
+<span class="fc" id="L81">            ObjectNode sortedNode = mapper.createObjectNode();</span>
+<span class="fc" id="L82">            TreeMap&lt;String, JsonNode&gt; sortedFields = new TreeMap&lt;&gt;();</span>
+            
+<span class="fc" id="L84">            node.fields().forEachRemaining(entry -&gt; </span>
+<span class="fc" id="L85">                sortedFields.put(entry.getKey(), canonicalizeNode(entry.getValue()))</span>
+            );
+            
+<span class="fc" id="L88">            sortedFields.forEach(sortedNode::set);</span>
+<span class="fc" id="L89">            return sortedNode;</span>
+<span class="fc bfc" id="L90" title="All 2 branches covered.">        } else if (node.isArray()) {</span>
+<span class="fc" id="L91">            ArrayNode arrayNode = mapper.createArrayNode();</span>
+<span class="fc" id="L92">            node.elements().forEachRemaining(element -&gt; arrayNode.add(canonicalizeNode(element)));</span>
+<span class="fc" id="L93">            return arrayNode;</span>
+        }
+        
+        // Return primitives as-is
+<span class="fc" id="L97">        return node;</span>
+    }
+
+    /**
+     * Converts a byte array into a lowercase hexadecimal string.
+     */
+
+    /**
+     * Calculates a cryptographic commitment for a redaction event.
+     * Binds the original content hash to the new redacted payload.
+     */
+    public String calculateRedactionDigest(String originalContentHash, JsonNode redactedPayload) {
+        try {
+<span class="fc" id="L110">            String payloadString = mapper.writeValueAsString(canonicalizeNode(redactedPayload));</span>
+<span class="fc" id="L111">            String combined = originalContentHash + &quot;|REDACTED|&quot; + payloadString;</span>
+<span class="fc" id="L112">            MessageDigest digest = MessageDigest.getInstance(&quot;SHA-256&quot;);</span>
+<span class="fc" id="L113">            byte[] hashBytes = digest.digest(combined.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L114">            return bytesToHex(hashBytes);</span>
+<span class="nc" id="L115">        } catch (NoSuchAlgorithmException | JsonProcessingException e) {</span>
+<span class="nc" id="L116">            throw new IllegalStateException(&quot;Failed to calculate redaction digest&quot;, e);</span>
+        }
+    }
+
+    private String bytesToHex(byte[] bytes) {
+<span class="fc" id="L121">        StringBuilder hexString = new StringBuilder(2 * bytes.length);</span>
+<span class="fc bfc" id="L122" title="All 2 branches covered.">        for (byte b : bytes) {</span>
+<span class="fc" id="L123">            String hex = Integer.toHexString(0xff &amp; b);</span>
+<span class="fc bfc" id="L124" title="All 2 branches covered.">            if (hex.length() == 1) {</span>
+<span class="fc" id="L125">                hexString.append('0');</span>
+            }
+<span class="fc" id="L127">            hexString.append(hex);</span>
+        }
+<span class="fc" id="L129">        return hexString.toString();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

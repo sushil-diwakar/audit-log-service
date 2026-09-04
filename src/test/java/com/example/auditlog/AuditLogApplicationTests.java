@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest
+@SpringBootTest(properties = {"DEV_USER=test", "DEV_PASSWORD=test"})
 @ActiveProfiles("dev")
 class AuditLogApplicationTests {
 

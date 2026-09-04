@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.springframework.test.context.TestPropertySource;
 
-@SpringBootTest
+@SpringBootTest(properties = {"DEV_USER=test", "DEV_PASSWORD=test"})
 @ActiveProfiles("dev")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 class HashChainIntegrationTest {

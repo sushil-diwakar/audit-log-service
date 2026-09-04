@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ChainVerificationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">ChainVerificationService.java</span></div><h1>ChainVerificationService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+
+
+import com.example.auditlog.dto.VerificationResponse;
+
+import com.example.auditlog.entity.AuditRecord;
+
+import com.example.auditlog.enums.ChainViolationType;
+
+import com.example.auditlog.repository.AuditRecordRepository;
+
+import lombok.RequiredArgsConstructor;
+
+import org.springframework.stereotype.Service;
+
+import org.springframework.transaction.annotation.Transactional;
+
+
+
+import java.util.HashMap;
+
+import java.util.HashSet;
+
+import java.util.List;
+
+import java.util.Map;
+
+import java.util.Set;
+
+import java.util.UUID;
+
+import java.util.stream.Collectors;
+
+
+
+@Service
+
+@RequiredArgsConstructor
+
+public class ChainVerificationService {
+
+
+
+    private final AuditRecordRepository repository;
+
+    private final HashService hashService;
+
+
+
+    @Transactional(readOnly = true)
+
+    public VerificationResponse verifyChain() {
+
+<span class="fc" id="L55">        List&lt;AuditRecord&gt; allRecords = repository.findAll();</span>
+
+
+
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        if (allRecords.isEmpty()) {</span>
+
+<span class="fc" id="L61">            return VerificationResponse.builder()</span>
+
+<span class="fc" id="L63">                    .valid(true)</span>
+
+<span class="fc" id="L65">                    .message(&quot;Chain is empty and intact&quot;)</span>
+
+<span class="fc" id="L67">                    .checkedRecords(0)</span>
+
+<span class="fc" id="L69">                    .build();</span>
+
+        }
+
+
+
+        // 1. Content Integrity Check &amp; Indexing
+
+<span class="fc" id="L77">        Map&lt;String, List&lt;AuditRecord&gt;&gt; byPreviousHash = allRecords.stream()</span>
+
+<span class="fc" id="L79">                .collect(Collectors.groupingBy(AuditRecord::getPreviousHash));</span>
+
+
+
+<span class="fc bfc" id="L83" title="All 2 branches covered.">        for (AuditRecord record : allRecords) {</span>
+
+<span class="fc" id="L85">            String storedContentHash = record.getContentHash();</span>
+
+            
+
+<span class="fc bfc" id="L89" title="All 2 branches covered.">            if (record.getStatus() == com.example.auditlog.entity.AuditRecordStatus.REDACTED) {</span>
+
+<span class="pc bpc" id="L91" title="2 of 4 branches missed.">                if (storedContentHash == null || !storedContentHash.matches(&quot;^[a-f0-9]{64}$&quot;)) {</span>
+
+<span class="nc" id="L93">                    return buildFailure(&quot;Invalid content hash for REDACTED record&quot;, ChainViolationType.INVALID_CONTENT_HASH, record.getId(), 0);</span>
+
+                }
+
+                
+
+<span class="fc" id="L99">                String expectedRedactionDigest = hashService.calculateRedactionDigest(storedContentHash, record.getPayload());</span>
+
+<span class="fc bfc" id="L101" title="All 4 branches covered.">                if (record.getRedactionDigest() == null || !record.getRedactionDigest().equals(expectedRedactionDigest)) {</span>
+
+<span class="fc" id="L103">                    return buildFailure(&quot;Redaction digest mismatch detected&quot;, ChainViolationType.REDACTION_METADATA_MISMATCH, record.getId(), 0);</span>
+
+                }
+
+<span class="fc" id="L107">            } else {</span>
+
+<span class="fc" id="L109">                String computedContent = hashService.calculateContentHash(record);</span>
+
+<span class="fc bfc" id="L111" title="All 2 branches covered.">                if (!computedContent.equals(storedContentHash)) {</span>
+
+<span class="fc" id="L113">                    return buildFailure(&quot;Content hash mismatch detected&quot;, ChainViolationType.CONTENT_HASH_MISMATCH, record.getId(), 0);</span>
+
+                }
+
+            }
+
+
+
+<span class="fc" id="L121">            String computedRecord = hashService.calculateRecordHash(storedContentHash, record.getPreviousHash());</span>
+
+            
+
+<span class="fc bfc" id="L125" title="All 2 branches covered.">            if (!computedRecord.equals(record.getRecordHash())) {</span>
+
+<span class="fc" id="L127">                return buildFailure(&quot;Record hash mismatch detected&quot;, ChainViolationType.RECORD_HASH_MISMATCH, record.getId(), 0);</span>
+
+            }
+
+<span class="fc" id="L131">        }</span>
+
+
+
+        // 2. Genesis Verification
+
+<span class="fc" id="L137">        List&lt;AuditRecord&gt; genesisRecords = byPreviousHash.get(AuditService.GENESIS_HASH);</span>
+
+<span class="pc bpc" id="L139" title="2 of 4 branches missed.">        if (genesisRecords == null || genesisRecords.isEmpty()) {</span>
+
+<span class="nc" id="L141">            return buildFailure(&quot;No genesis record found&quot;, ChainViolationType.MISSING_GENESIS, null, 0);</span>
+
+        }
+
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (genesisRecords.size() &gt; 1) {</span>
+
+<span class="nc" id="L147">            return buildFailure(&quot;Multiple genesis records found&quot;, ChainViolationType.MULTIPLE_GENESIS, genesisRecords.get(1).getId(), 0);</span>
+
+        }
+
+
+
+        // 3. Chain Traversal
+
+<span class="fc" id="L155">        AuditRecord current = genesisRecords.get(0);</span>
+
+<span class="fc" id="L157">        Set&lt;UUID&gt; visited = new HashSet&lt;&gt;();</span>
+
+<span class="fc" id="L159">        visited.add(current.getId());</span>
+
+<span class="fc" id="L161">        int checked = 1;</span>
+
+
+
+        while (true) {
+
+<span class="fc" id="L167">            List&lt;AuditRecord&gt; nextList = byPreviousHash.get(current.getRecordHash());</span>
+
+            
+
+<span class="pc bpc" id="L171" title="1 of 4 branches missed.">            if (nextList == null || nextList.isEmpty()) {</span>
+
+<span class="nc" id="L173">                break; // End of chain reached</span>
+
+            }
+
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">            if (nextList.size() &gt; 1) {</span>
+
+<span class="nc" id="L179">                return buildFailure(&quot;Chain fork detected&quot;, ChainViolationType.FORK_DETECTED, nextList.get(1).getId(), checked);</span>
+
+            }
+
+            
+
+<span class="fc" id="L185">            AuditRecord next = nextList.get(0);</span>
+
+<span class="pc bpc" id="L187" title="1 of 2 branches missed.">            if (visited.contains(next.getId())) {</span>
+
+<span class="nc" id="L189">                return buildFailure(&quot;Cycle detected in chain&quot;, ChainViolationType.CYCLE_DETECTED, next.getId(), checked);</span>
+
+            }
+
+            
+
+<span class="fc" id="L195">            visited.add(next.getId());</span>
+
+<span class="fc" id="L197">            current = next;</span>
+
+<span class="fc" id="L199">            checked++;</span>
+
+<span class="fc" id="L201">        }</span>
+
+
+
+        // 4. Complete Coverage Verification (Orphans)
+
+<span class="fc bfc" id="L207" title="All 2 branches covered.">        if (checked != allRecords.size()) {</span>
+
+<span class="fc" id="L209">            AuditRecord orphan = allRecords.stream()</span>
+
+<span class="fc bfc" id="L211" title="All 2 branches covered.">                    .filter(r -&gt; !visited.contains(r.getId()))</span>
+
+<span class="fc" id="L213">                    .findFirst()</span>
+
+<span class="fc" id="L215">                    .orElseThrow();</span>
+
+<span class="fc" id="L217">            return buildFailure(&quot;Disconnected or orphaned records detected&quot;, ChainViolationType.DISCONNECTED_RECORD, orphan.getId(), checked);</span>
+
+        }
+
+
+
+<span class="fc" id="L223">        return VerificationResponse.builder()</span>
+
+<span class="fc" id="L225">                .valid(true)</span>
+
+<span class="fc" id="L227">                .message(&quot;Audit chain is intact&quot;)</span>
+
+<span class="fc" id="L229">                .checkedRecords(checked)</span>
+
+<span class="fc" id="L231">                .build();</span>
+
+    }
+
+
+
+    private VerificationResponse buildFailure(String message, ChainViolationType type, UUID recordId, int checkedRecords) {
+
+<span class="fc" id="L239">        return VerificationResponse.builder()</span>
+
+<span class="fc" id="L241">                .valid(false)</span>
+
+<span class="fc" id="L243">                .message(message)</span>
+
+<span class="fc" id="L245">                .violationType(type)</span>
+
+<span class="fc" id="L247">                .recordId(recordId)</span>
+
+<span class="fc" id="L249">                .checkedRecords(checkedRecords)</span>
+
+<span class="fc" id="L251">                .build();</span>
+
+    }
+
+}
+
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
+    "DEV_USER=test", "DEV_PASSWORD=test",
     "audit.cors.allowed-origins=http://localhost:3000"
 })
 @AutoConfigureMockMvc

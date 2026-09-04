@@ -15,7 +15,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
+@SpringBootTest(properties = {"DEV_USER=test", "DEV_PASSWORD=test"})
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
@@ -32,7 +32,7 @@ public class AuthorizationTest {
         mockMvc.perform(post("/audit/events").contentType(MediaType.APPLICATION_JSON).content(PAYLOAD).with(csrf())).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/audit/verify")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/audit/export?resourceId=1")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/audit/events/123/redact").contentType(MediaType.APPLICATION_JSON).content("{\"paths\":[]}").with(csrf())).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/audit/events/123e4567-e89b-12d3-a456-426614174000/redact").contentType(MediaType.APPLICATION_JSON).content("{\"paths\":[]}").with(csrf())).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/audit/retention/archive?before=2025-01-01T00:00:00Z").with(csrf())).andExpect(status().isUnauthorized());
     }
 
@@ -84,12 +84,12 @@ public class AuthorizationTest {
 
     @Test
     void redactEndpoint_RequiresRedactScope() throws Exception {
-        mockMvc.perform(post("/audit/events/123/redact")
+        mockMvc.perform(post("/audit/events/123e4567-e89b-12d3-a456-426614174000/redact")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"paths\":[\"/a\"]}").with(csrf())
                 .with(user("u").authorities(new SimpleGrantedAuthority("SCOPE_audit:write"))))
                 .andExpect(status().isForbidden());
         // A valid ID is needed for 2xx, but 404 indicates we passed authz
-        mockMvc.perform(post("/audit/events/123/redact")
+        mockMvc.perform(post("/audit/events/123e4567-e89b-12d3-a456-426614174000/redact")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"paths\":[\"/a\"]}").with(csrf())
                 .with(user("u").authorities(new SimpleGrantedAuthority("SCOPE_audit:redact"))))
                 .andExpect(status().isNotFound()); // Or 400, but not 401/403
