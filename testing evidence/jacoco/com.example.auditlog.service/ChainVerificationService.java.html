@@ -208,7 +208,7 @@ public class ChainVerificationService {
 
 <span class="fc" id="L209">            AuditRecord orphan = allRecords.stream()</span>
 
-<span class="fc bfc" id="L211" title="All 2 branches covered.">                    .filter(r -&gt; !visited.contains(r.getId()))</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">                    .filter(r -&gt; !visited.contains(r.getId()))</span>
 
 <span class="fc" id="L213">                    .findFirst()</span>
 

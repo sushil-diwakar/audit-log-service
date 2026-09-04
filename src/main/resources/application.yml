@@ -43,3 +43,9 @@ springdoc:
     enabled: true
     operations-sorter: method
     tags-sorter: alpha
+
+audit:
+  signature:
+    key-id: ${AUDIT_SIGNATURE_KEY_ID:default}
+    private-key: ${AUDIT_SIGNATURE_PRIVATE_KEY:}
+    public-key: ${AUDIT_SIGNATURE_PUBLIC_KEY:}

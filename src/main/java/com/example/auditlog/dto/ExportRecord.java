@@ -26,4 +26,5 @@ public class ExportRecord {
     private String contentHash;
     private String previousHash;
     private String recordHash;
+    private String redactionDigest;
 }

@@ -19,6 +19,19 @@ public class ExportMetadata {
     private String firstExportedRecordHash;
     private String lastExportedRecordHash;
     private String globalChainTipHash;
+    private ExportSignature signature;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ExportSignature {
+        private String algorithm;
+        private String keyId;
+        private String signatureValue;
+        private String canonicalizationVersion;
+        private String publicKeyReference;
+    }
 
     @Data
     @Builder

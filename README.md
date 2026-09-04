@@ -10,6 +10,17 @@ This project implements a compliance-grade audit logging Audit Log Service desig
 
 
 
+
+
+## Digital Signatures for Exports
+To ensure non-repudiation and authenticity of audit records when exported to external regulators or cold storage, the service supports cryptographically signing export bundles.
+
+- **Algorithm**: `SHA256withRSA`
+- **Canonicalization**: Prior to signing, the `ExportBundle` is converted to a deterministic, canonical UTF-8 string format (version `v1`). This ensures JSON serialization differences (e.g., key ordering) do not invalidate the signature, while array ordering is strictly preserved.
+- **What is signed**: The signature covers all security-relevant fields of the exported records (including `eventType`, `actorId`, `resourceType`, `resourceId`, `payload`, `timestamp`, `previousHash`, `recordHash`, `redactionDigest`, etc.) and the scope metadata (`firstExportedRecordPreviousHash`, `globalChainTipHash`, etc.).
+- **Key Management**: Private and Public keys are externalized. The prototype uses properties `audit.signature.private-key` and `audit.signature.public-key`. In a production environment, it is highly recommended to store the signing key in a KMS (Key Management Service) or HSM (Hardware Security Module) and perform the signing operation remotely to prevent the key from ever entering application memory. Key rotation is supported via `keyId`.
+- **Verification**: An independent verifier can use the public key to validate the `ExportBundle`. The `/audit/export/verify` endpoint provides an automated verification mechanism. Note: The digital signature proves authenticity of the exported subset against the holder of the private key, complementing the hash-chain which proves internal linkage and immutability.
+
 ## Setup Instructions
 
 

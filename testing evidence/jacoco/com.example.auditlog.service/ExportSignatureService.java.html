@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ExportSignatureService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">ExportSignatureService.java</span></div><h1>ExportSignatureService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+import com.example.auditlog.dto.ExportBundle;
+import com.example.auditlog.dto.ExportMetadata;
+import com.example.auditlog.dto.ExportRecord;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.TreeMap;
+
+@Service
+@RequiredArgsConstructor
+<span class="fc" id="L27">@Slf4j</span>
+public class ExportSignatureService {
+
+    private final ObjectMapper mapper;
+
+    @Value(&quot;${audit.signature.key-id:default-key-1}&quot;)
+    private String keyId;
+
+    @Value(&quot;${audit.signature.private-key:}&quot;)
+    private String privateKeyStr;
+
+    @Value(&quot;${audit.signature.public-key:}&quot;)
+    private String publicKeyStr;
+
+    private static final String ALGORITHM = &quot;SHA256withRSA&quot;;
+    private static final String CANONICAL_VERSION = &quot;v1&quot;;
+
+    public void signBundle(ExportBundle bundle) {
+<span class="pc bpc" id="L45" title="2 of 4 branches missed.">        if (privateKeyStr == null || privateKeyStr.isBlank()) {</span>
+<span class="nc" id="L46">            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, &quot;Signing requested but private key is unavailable&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L50">            PrivateKey privateKey = loadPrivateKey(privateKeyStr);</span>
+<span class="fc" id="L51">            String canonical = canonicalizeBundle(bundle);</span>
+
+<span class="fc" id="L53">            Signature signature = Signature.getInstance(ALGORITHM);</span>
+<span class="fc" id="L54">            signature.initSign(privateKey);</span>
+<span class="fc" id="L55">            signature.update(canonical.getBytes(StandardCharsets.UTF_8));</span>
+<span class="fc" id="L56">            byte[] signedBytes = signature.sign();</span>
+
+<span class="fc" id="L58">            ExportMetadata.ExportSignature sig = ExportMetadata.ExportSignature.builder()</span>
+<span class="fc" id="L59">                    .algorithm(ALGORITHM)</span>
+<span class="fc" id="L60">                    .keyId(keyId)</span>
+<span class="fc" id="L61">                    .signatureValue(Base64.getEncoder().encodeToString(signedBytes))</span>
+<span class="fc" id="L62">                    .canonicalizationVersion(CANONICAL_VERSION)</span>
+<span class="fc" id="L63">                    .publicKeyReference(&quot;Public key available via documentation or admin configuration&quot;)</span>
+<span class="fc" id="L64">                    .build();</span>
+
+<span class="fc" id="L66">            bundle.getMetadata().setSignature(sig);</span>
+
+<span class="nc" id="L68">        } catch (Exception e) {</span>
+<span class="nc" id="L69">            log.error(&quot;Failed to sign export bundle&quot;, e);</span>
+<span class="nc" id="L70">            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, &quot;Failed to generate digital signature for export bundle&quot;);</span>
+<span class="fc" id="L71">        }</span>
+<span class="fc" id="L72">    }</span>
+
+    public boolean verifySignature(ExportBundle bundle) {
+<span class="pc bpc" id="L75" title="2 of 4 branches missed.">        if (bundle.getMetadata() == null || bundle.getMetadata().getSignature() == null) {</span>
+<span class="nc" id="L76">            return false;</span>
+        }
+
+<span class="fc" id="L79">        ExportMetadata.ExportSignature sig = bundle.getMetadata().getSignature();</span>
+<span class="fc bfc" id="L80" title="All 2 branches covered.">        if (!CANONICAL_VERSION.equals(sig.getCanonicalizationVersion())) {</span>
+<span class="fc" id="L81">            log.warn(&quot;Unsupported canonicalization version: {}&quot;, sig.getCanonicalizationVersion());</span>
+<span class="fc" id="L82">            return false;</span>
+        }
+
+<span class="pc bpc" id="L85" title="2 of 4 branches missed.">        if (publicKeyStr == null || publicKeyStr.isBlank()) {</span>
+<span class="nc" id="L86">            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, &quot;Public key not configured for verification&quot;);</span>
+        }
+
+        try {
+<span class="fc" id="L90">            PublicKey publicKey = loadPublicKey(publicKeyStr);</span>
+<span class="fc" id="L91">            String canonical = canonicalizeBundle(bundle);</span>
+
+<span class="fc" id="L93">            Signature signature = Signature.getInstance(sig.getAlgorithm());</span>
+<span class="fc" id="L94">            signature.initVerify(publicKey);</span>
+<span class="fc" id="L95">            signature.update(canonical.getBytes(StandardCharsets.UTF_8));</span>
+            
+<span class="fc" id="L97">            byte[] signatureBytes = Base64.getDecoder().decode(sig.getSignatureValue());</span>
+<span class="fc" id="L98">            return signature.verify(signatureBytes);</span>
+<span class="nc" id="L99">        } catch (Exception e) {</span>
+<span class="nc" id="L100">            log.error(&quot;Failed to verify signature&quot;, e);</span>
+<span class="nc" id="L101">            return false;</span>
+        }
+    }
+
+    private String canonicalizeBundle(ExportBundle bundle) throws JsonProcessingException {
+        // Deterministic JSON string representation excluding the signature
+        
+<span class="fc" id="L108">        StringBuilder sb = new StringBuilder();</span>
+<span class="fc" id="L109">        sb.append(CANONICAL_VERSION).append(&quot;|&quot;);</span>
+        
+<span class="fc" id="L111">        ExportMetadata meta = bundle.getMetadata();</span>
+<span class="pc bpc" id="L112" title="1 of 2 branches missed.">        if (meta != null) {</span>
+<span class="pc bpc" id="L113" title="1 of 2 branches missed.">            sb.append(&quot;meta.query.actorId=&quot;).append(meta.getQuery() != null ? meta.getQuery().getActorId() : &quot;null&quot;).append(&quot;|&quot;);</span>
+<span class="pc bpc" id="L114" title="1 of 2 branches missed.">            sb.append(&quot;meta.query.resourceId=&quot;).append(meta.getQuery() != null ? meta.getQuery().getResourceId() : &quot;null&quot;).append(&quot;|&quot;);</span>
+<span class="fc" id="L115">            sb.append(&quot;meta.recordCount=&quot;).append(meta.getRecordCount()).append(&quot;|&quot;);</span>
+<span class="fc" id="L116">            sb.append(&quot;meta.firstExportedRecordPreviousHash=&quot;).append(meta.getFirstExportedRecordPreviousHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L117">            sb.append(&quot;meta.firstExportedRecordHash=&quot;).append(meta.getFirstExportedRecordHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L118">            sb.append(&quot;meta.lastExportedRecordHash=&quot;).append(meta.getLastExportedRecordHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L119">            sb.append(&quot;meta.globalChainTipHash=&quot;).append(meta.getGlobalChainTipHash()).append(&quot;|&quot;);</span>
+        }
+
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (bundle.getRecords() != null) {</span>
+<span class="fc bfc" id="L123" title="All 2 branches covered.">            for (ExportRecord r : bundle.getRecords()) {</span>
+<span class="fc" id="L124">                sb.append(&quot;rec.id=&quot;).append(r.getId()).append(&quot;|&quot;);</span>
+<span class="fc" id="L125">                sb.append(&quot;rec.eventType=&quot;).append(r.getEventType()).append(&quot;|&quot;);</span>
+<span class="fc" id="L126">                sb.append(&quot;rec.actorId=&quot;).append(r.getActorId()).append(&quot;|&quot;);</span>
+<span class="fc" id="L127">                sb.append(&quot;rec.resourceType=&quot;).append(r.getResourceType()).append(&quot;|&quot;);</span>
+<span class="fc" id="L128">                sb.append(&quot;rec.resourceId=&quot;).append(r.getResourceId()).append(&quot;|&quot;);</span>
+                
+<span class="pc bpc" id="L130" title="1 of 2 branches missed.">                String payloadStr = r.getPayload() != null ? canonicalizeNode(r.getPayload()) : &quot;null&quot;;</span>
+<span class="fc" id="L131">                sb.append(&quot;rec.payload=&quot;).append(payloadStr).append(&quot;|&quot;);</span>
+                
+<span class="pc bpc" id="L133" title="1 of 2 branches missed.">                sb.append(&quot;rec.timestamp=&quot;).append(r.getTimestamp() != null ? r.getTimestamp().toString() : &quot;null&quot;).append(&quot;|&quot;);</span>
+<span class="fc" id="L134">                sb.append(&quot;rec.status=&quot;).append(r.getStatus()).append(&quot;|&quot;);</span>
+<span class="fc" id="L135">                sb.append(&quot;rec.contentHash=&quot;).append(r.getContentHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L136">                sb.append(&quot;rec.previousHash=&quot;).append(r.getPreviousHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L137">                sb.append(&quot;rec.recordHash=&quot;).append(r.getRecordHash()).append(&quot;|&quot;);</span>
+<span class="fc" id="L138">                sb.append(&quot;rec.redactionDigest=&quot;).append(r.getRedactionDigest()).append(&quot;|&quot;);</span>
+<span class="fc" id="L139">            }</span>
+        }
+        
+<span class="fc" id="L142">        return sb.toString();</span>
+    }
+
+    private String canonicalizeNode(JsonNode node) throws JsonProcessingException {
+<span class="fc bfc" id="L146" title="All 2 branches covered.">        if (node.isObject()) {</span>
+<span class="fc" id="L147">            Map&lt;String, JsonNode&gt; sortedMap = new TreeMap&lt;&gt;();</span>
+<span class="fc" id="L148">            Iterator&lt;Map.Entry&lt;String, JsonNode&gt;&gt; it = node.fields();</span>
+<span class="fc bfc" id="L149" title="All 2 branches covered.">            while (it.hasNext()) {</span>
+<span class="fc" id="L150">                Map.Entry&lt;String, JsonNode&gt; entry = it.next();</span>
+<span class="fc" id="L151">                sortedMap.put(entry.getKey(), entry.getValue());</span>
+<span class="fc" id="L152">            }</span>
+<span class="fc" id="L153">            StringBuilder sb = new StringBuilder(&quot;{&quot;);</span>
+<span class="fc" id="L154">            boolean first = true;</span>
+<span class="fc bfc" id="L155" title="All 2 branches covered.">            for (Map.Entry&lt;String, JsonNode&gt; entry : sortedMap.entrySet()) {</span>
+<span class="fc bfc" id="L156" title="All 2 branches covered.">                if (!first) sb.append(&quot;,&quot;);</span>
+<span class="fc" id="L157">                sb.append(&quot;\&quot;&quot;).append(entry.getKey()).append(&quot;\&quot;:&quot;).append(canonicalizeNode(entry.getValue()));</span>
+<span class="fc" id="L158">                first = false;</span>
+<span class="fc" id="L159">            }</span>
+<span class="fc" id="L160">            sb.append(&quot;}&quot;);</span>
+<span class="fc" id="L161">            return sb.toString();</span>
+<span class="fc bfc" id="L162" title="All 2 branches covered.">        } else if (node.isArray()) {</span>
+<span class="fc" id="L163">            StringBuilder sb = new StringBuilder(&quot;[&quot;);</span>
+<span class="fc bfc" id="L164" title="All 2 branches covered.">            for (int i = 0; i &lt; node.size(); i++) {</span>
+<span class="fc bfc" id="L165" title="All 2 branches covered.">                if (i &gt; 0) sb.append(&quot;,&quot;);</span>
+<span class="fc" id="L166">                sb.append(canonicalizeNode(node.get(i)));</span>
+            }
+<span class="fc" id="L168">            sb.append(&quot;]&quot;);</span>
+<span class="fc" id="L169">            return sb.toString();</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        } else if (node.isNull()) {</span>
+<span class="nc" id="L171">            return &quot;null&quot;;</span>
+<span class="fc bfc" id="L172" title="All 2 branches covered.">        } else if (node.isTextual()) {</span>
+<span class="fc" id="L173">            return mapper.writeValueAsString(node.asText());</span>
+        } else {
+<span class="fc" id="L175">            return node.asText();</span>
+        }
+    }
+
+    private PrivateKey loadPrivateKey(String key64) throws Exception {
+<span class="fc" id="L180">        byte[] clear = Base64.getDecoder().decode(key64.replaceAll(&quot;\\s&quot;, &quot;&quot;));</span>
+<span class="fc" id="L181">        PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(clear);</span>
+<span class="fc" id="L182">        KeyFactory fact = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="fc" id="L183">        return fact.generatePrivate(keySpec);</span>
+    }
+
+    private PublicKey loadPublicKey(String key64) throws Exception {
+<span class="fc" id="L187">        byte[] clear = Base64.getDecoder().decode(key64.replaceAll(&quot;\\s&quot;, &quot;&quot;));</span>
+<span class="fc" id="L188">        X509EncodedKeySpec keySpec = new X509EncodedKeySpec(clear);</span>
+<span class="fc" id="L189">        KeyFactory fact = KeyFactory.getInstance(&quot;RSA&quot;);</span>
+<span class="fc" id="L190">        return fact.generatePublic(keySpec);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

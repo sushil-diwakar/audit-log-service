@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 public class ExportService {
 
     private final AuditRecordRepository auditRecordRepository;
+    private final ExportSignatureService signatureService;
 
     @Transactional(readOnly = true)
     public ExportBundle export(String actorId, String resourceId) {
@@ -70,14 +71,17 @@ public class ExportService {
                 .globalChainTipHash(globalTipHash)
                 .build();
 
-        return ExportBundle.builder()
+        ExportBundle bundle = ExportBundle.builder()
                 .metadata(metadata)
                 .records(matchingRecords)
                 .build();
+                
+        signatureService.signBundle(bundle);
+        return bundle;
     }
 
     private ExportBundle buildEmptyBundle(String actorId, String resourceId) {
-        return ExportBundle.builder()
+        ExportBundle bundle = ExportBundle.builder()
                 .metadata(ExportMetadata.builder()
                         .generatedAt(Instant.now())
                         .query(ExportMetadata.QueryFilter.builder()
@@ -89,6 +93,9 @@ public class ExportService {
                         .build())
                 .records(new ArrayList<>())
                 .build();
+                
+        signatureService.signBundle(bundle);
+        return bundle;
     }
 
     private ExportRecord mapToExportRecord(AuditRecord record) {
@@ -104,6 +111,7 @@ public class ExportService {
                 .contentHash(record.getContentHash())
                 .previousHash(record.getPreviousHash())
                 .recordHash(record.getRecordHash())
+                .redactionDigest(record.getRedactionDigest())
                 .build();
     }
 }

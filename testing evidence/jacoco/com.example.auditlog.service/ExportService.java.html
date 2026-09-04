@@ -22,89 +22,97 @@ import java.util.stream.Collectors;
 public class ExportService {
 
     private final AuditRecordRepository auditRecordRepository;
+    private final ExportSignatureService signatureService;
 
     @Transactional(readOnly = true)
     public ExportBundle export(String actorId, String resourceId) {
-<span class="pc bpc" id="L28" title="2 of 8 branches missed.">        if ((actorId == null || actorId.isBlank()) &amp;&amp; (resourceId == null || resourceId.isBlank())) {</span>
-<span class="fc" id="L29">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;At least one of actorId or resourceId must be provided&quot;);</span>
+<span class="pc bpc" id="L29" title="2 of 8 branches missed.">        if ((actorId == null || actorId.isBlank()) &amp;&amp; (resourceId == null || resourceId.isBlank())) {</span>
+<span class="fc" id="L30">            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, &quot;At least one of actorId or resourceId must be provided&quot;);</span>
         }
 
         // Fetch all records to guarantee perfect topological order traversal
-<span class="fc" id="L33">        List&lt;AuditRecord&gt; allRecords = auditRecordRepository.findAll();</span>
+<span class="fc" id="L34">        List&lt;AuditRecord&gt; allRecords = auditRecordRepository.findAll();</span>
         
-<span class="pc bpc" id="L35" title="1 of 2 branches missed.">        if (allRecords.isEmpty()) {</span>
-<span class="nc" id="L36">            return buildEmptyBundle(actorId, resourceId);</span>
+<span class="pc bpc" id="L36" title="1 of 2 branches missed.">        if (allRecords.isEmpty()) {</span>
+<span class="nc" id="L37">            return buildEmptyBundle(actorId, resourceId);</span>
         }
 
-<span class="fc" id="L39">        Map&lt;String, AuditRecord&gt; byPreviousHash = allRecords.stream()</span>
-<span class="fc" id="L40">                .collect(Collectors.toMap(AuditRecord::getPreviousHash, r -&gt; r));</span>
+<span class="fc" id="L40">        Map&lt;String, AuditRecord&gt; byPreviousHash = allRecords.stream()</span>
+<span class="fc" id="L41">                .collect(Collectors.toMap(AuditRecord::getPreviousHash, r -&gt; r));</span>
 
-<span class="fc" id="L42">        List&lt;ExportRecord&gt; matchingRecords = new ArrayList&lt;&gt;();</span>
-<span class="fc" id="L43">        AuditRecord current = byPreviousHash.get(AuditService.GENESIS_HASH);</span>
+<span class="fc" id="L43">        List&lt;ExportRecord&gt; matchingRecords = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L44">        AuditRecord current = byPreviousHash.get(AuditService.GENESIS_HASH);</span>
 
-<span class="fc bfc" id="L45" title="All 2 branches covered.">        while (current != null) {</span>
-<span class="fc bfc" id="L46" title="All 4 branches covered.">            boolean matchesActor = actorId == null || actorId.equals(current.getActorId());</span>
-<span class="fc bfc" id="L47" title="All 4 branches covered.">            boolean matchesResource = resourceId == null || resourceId.equals(current.getResourceId());</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        while (current != null) {</span>
+<span class="fc bfc" id="L47" title="All 4 branches covered.">            boolean matchesActor = actorId == null || actorId.equals(current.getActorId());</span>
+<span class="fc bfc" id="L48" title="All 4 branches covered.">            boolean matchesResource = resourceId == null || resourceId.equals(current.getResourceId());</span>
 
-<span class="fc bfc" id="L49" title="All 4 branches covered.">            if (matchesActor &amp;&amp; matchesResource) {</span>
-<span class="fc" id="L50">                matchingRecords.add(mapToExportRecord(current));</span>
+<span class="fc bfc" id="L50" title="All 4 branches covered.">            if (matchesActor &amp;&amp; matchesResource) {</span>
+<span class="fc" id="L51">                matchingRecords.add(mapToExportRecord(current));</span>
             }
 
-<span class="fc" id="L53">            current = byPreviousHash.get(current.getRecordHash());</span>
-<span class="fc" id="L54">        }</span>
+<span class="fc" id="L54">            current = byPreviousHash.get(current.getRecordHash());</span>
+<span class="fc" id="L55">        }</span>
 
-<span class="fc" id="L56">        String globalTipHash = auditRecordRepository.findCurrentChainHead()</span>
-<span class="fc" id="L57">                .map(AuditRecord::getRecordHash)</span>
-<span class="fc" id="L58">                .orElse(AuditService.GENESIS_HASH);</span>
+<span class="fc" id="L57">        String globalTipHash = auditRecordRepository.findCurrentChainHead()</span>
+<span class="fc" id="L58">                .map(AuditRecord::getRecordHash)</span>
+<span class="fc" id="L59">                .orElse(AuditService.GENESIS_HASH);</span>
 
-<span class="fc" id="L60">        ExportMetadata metadata = ExportMetadata.builder()</span>
-<span class="fc" id="L61">                .generatedAt(Instant.now())</span>
-<span class="fc" id="L62">                .query(ExportMetadata.QueryFilter.builder()</span>
-<span class="fc" id="L63">                        .actorId(actorId)</span>
-<span class="fc" id="L64">                        .resourceId(resourceId)</span>
-<span class="fc" id="L65">                        .build())</span>
-<span class="fc" id="L66">                .recordCount(matchingRecords.size())</span>
-<span class="fc bfc" id="L67" title="All 2 branches covered.">                .firstExportedRecordPreviousHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getPreviousHash())</span>
-<span class="fc bfc" id="L68" title="All 2 branches covered.">                .firstExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getRecordHash())</span>
-<span class="fc bfc" id="L69" title="All 2 branches covered.">                .lastExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(matchingRecords.size() - 1).getRecordHash())</span>
-<span class="fc" id="L70">                .globalChainTipHash(globalTipHash)</span>
-<span class="fc" id="L71">                .build();</span>
+<span class="fc" id="L61">        ExportMetadata metadata = ExportMetadata.builder()</span>
+<span class="fc" id="L62">                .generatedAt(Instant.now())</span>
+<span class="fc" id="L63">                .query(ExportMetadata.QueryFilter.builder()</span>
+<span class="fc" id="L64">                        .actorId(actorId)</span>
+<span class="fc" id="L65">                        .resourceId(resourceId)</span>
+<span class="fc" id="L66">                        .build())</span>
+<span class="fc" id="L67">                .recordCount(matchingRecords.size())</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">                .firstExportedRecordPreviousHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getPreviousHash())</span>
+<span class="fc bfc" id="L69" title="All 2 branches covered.">                .firstExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(0).getRecordHash())</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">                .lastExportedRecordHash(matchingRecords.isEmpty() ? null : matchingRecords.get(matchingRecords.size() - 1).getRecordHash())</span>
+<span class="fc" id="L71">                .globalChainTipHash(globalTipHash)</span>
+<span class="fc" id="L72">                .build();</span>
 
-<span class="fc" id="L73">        return ExportBundle.builder()</span>
-<span class="fc" id="L74">                .metadata(metadata)</span>
-<span class="fc" id="L75">                .records(matchingRecords)</span>
-<span class="fc" id="L76">                .build();</span>
+<span class="fc" id="L74">        ExportBundle bundle = ExportBundle.builder()</span>
+<span class="fc" id="L75">                .metadata(metadata)</span>
+<span class="fc" id="L76">                .records(matchingRecords)</span>
+<span class="fc" id="L77">                .build();</span>
+                
+<span class="fc" id="L79">        signatureService.signBundle(bundle);</span>
+<span class="fc" id="L80">        return bundle;</span>
     }
 
     private ExportBundle buildEmptyBundle(String actorId, String resourceId) {
-<span class="nc" id="L80">        return ExportBundle.builder()</span>
-<span class="nc" id="L81">                .metadata(ExportMetadata.builder()</span>
-<span class="nc" id="L82">                        .generatedAt(Instant.now())</span>
-<span class="nc" id="L83">                        .query(ExportMetadata.QueryFilter.builder()</span>
-<span class="nc" id="L84">                                .actorId(actorId)</span>
-<span class="nc" id="L85">                                .resourceId(resourceId)</span>
-<span class="nc" id="L86">                                .build())</span>
-<span class="nc" id="L87">                        .recordCount(0)</span>
-<span class="nc" id="L88">                        .globalChainTipHash(AuditService.GENESIS_HASH)</span>
-<span class="nc" id="L89">                        .build())</span>
-<span class="nc" id="L90">                .records(new ArrayList&lt;&gt;())</span>
-<span class="nc" id="L91">                .build();</span>
+<span class="nc" id="L84">        ExportBundle bundle = ExportBundle.builder()</span>
+<span class="nc" id="L85">                .metadata(ExportMetadata.builder()</span>
+<span class="nc" id="L86">                        .generatedAt(Instant.now())</span>
+<span class="nc" id="L87">                        .query(ExportMetadata.QueryFilter.builder()</span>
+<span class="nc" id="L88">                                .actorId(actorId)</span>
+<span class="nc" id="L89">                                .resourceId(resourceId)</span>
+<span class="nc" id="L90">                                .build())</span>
+<span class="nc" id="L91">                        .recordCount(0)</span>
+<span class="nc" id="L92">                        .globalChainTipHash(AuditService.GENESIS_HASH)</span>
+<span class="nc" id="L93">                        .build())</span>
+<span class="nc" id="L94">                .records(new ArrayList&lt;&gt;())</span>
+<span class="nc" id="L95">                .build();</span>
+                
+<span class="nc" id="L97">        signatureService.signBundle(bundle);</span>
+<span class="nc" id="L98">        return bundle;</span>
     }
 
     private ExportRecord mapToExportRecord(AuditRecord record) {
-<span class="fc" id="L95">        return ExportRecord.builder()</span>
-<span class="fc" id="L96">                .id(record.getId())</span>
-<span class="fc" id="L97">                .eventType(record.getEventType())</span>
-<span class="fc" id="L98">                .actorId(record.getActorId())</span>
-<span class="fc" id="L99">                .resourceType(record.getResourceType())</span>
-<span class="fc" id="L100">                .resourceId(record.getResourceId())</span>
-<span class="fc" id="L101">                .payload(record.getPayload())</span>
-<span class="fc" id="L102">                .timestamp(record.getTimestamp())</span>
-<span class="fc" id="L103">                .status(record.getStatus())</span>
-<span class="fc" id="L104">                .contentHash(record.getContentHash())</span>
-<span class="fc" id="L105">                .previousHash(record.getPreviousHash())</span>
-<span class="fc" id="L106">                .recordHash(record.getRecordHash())</span>
-<span class="fc" id="L107">                .build();</span>
+<span class="fc" id="L102">        return ExportRecord.builder()</span>
+<span class="fc" id="L103">                .id(record.getId())</span>
+<span class="fc" id="L104">                .eventType(record.getEventType())</span>
+<span class="fc" id="L105">                .actorId(record.getActorId())</span>
+<span class="fc" id="L106">                .resourceType(record.getResourceType())</span>
+<span class="fc" id="L107">                .resourceId(record.getResourceId())</span>
+<span class="fc" id="L108">                .payload(record.getPayload())</span>
+<span class="fc" id="L109">                .timestamp(record.getTimestamp())</span>
+<span class="fc" id="L110">                .status(record.getStatus())</span>
+<span class="fc" id="L111">                .contentHash(record.getContentHash())</span>
+<span class="fc" id="L112">                .previousHash(record.getPreviousHash())</span>
+<span class="fc" id="L113">                .recordHash(record.getRecordHash())</span>
+<span class="fc" id="L114">                .redactionDigest(record.getRedactionDigest())</span>
+<span class="fc" id="L115">                .build();</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

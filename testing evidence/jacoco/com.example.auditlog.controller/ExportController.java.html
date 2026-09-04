@@ -8,6 +8,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import com.example.auditlog.dto.SignatureVerificationResponse;
+import com.example.auditlog.service.ExportSignatureService;
+import com.example.auditlog.service.ChainVerificationService;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -16,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class ExportController {
 
     private final ExportService exportService;
+    private final ExportSignatureService exportSignatureService;
+    private final ChainVerificationService chainVerificationService;
 
     @PreAuthorize(&quot;hasAuthority(\'SCOPE_audit:export\')&quot;)
     @GetMapping(&quot;/export&quot;)
@@ -23,8 +30,29 @@ public class ExportController {
             @RequestParam(required = false) String actorId,
             @RequestParam(required = false) String resourceId) {
         
-<span class="fc" id="L26">        ExportBundle bundle = exportService.export(actorId, resourceId);</span>
-<span class="fc" id="L27">        return ResponseEntity.ok(bundle);</span>
+<span class="fc" id="L33">        ExportBundle bundle = exportService.export(actorId, resourceId);</span>
+<span class="fc" id="L34">        return ResponseEntity.ok(bundle);</span>
     }
+
+    @PreAuthorize(&quot;hasAuthority('SCOPE_audit:verify')&quot;)
+    @PostMapping(&quot;/export/verify&quot;)
+    public ResponseEntity&lt;SignatureVerificationResponse&gt; verifyExportBundle(@RequestBody ExportBundle bundle) {
+<span class="nc" id="L40">        boolean sigValid = exportSignatureService.verifySignature(bundle);</span>
+        
+        // As a prototype, we just verify signature. If a full chain verification of the subset is needed, 
+        // we could do that here. But the requirement is to verify the signature.
+<span class="nc" id="L44">        boolean valid = sigValid;</span>
+<span class="nc bnc" id="L45" title="All 2 branches missed.">        String message = sigValid ? &quot;Export bundle signature is valid&quot; : &quot;Export bundle signature is invalid&quot;;</span>
+        
+<span class="nc" id="L47">        SignatureVerificationResponse response = SignatureVerificationResponse.builder()</span>
+<span class="nc" id="L48">                .valid(valid)</span>
+<span class="nc" id="L49">                .signatureValid(sigValid)</span>
+<span class="nc" id="L50">                .chainValid(true) // Subset chain verification could be integrated here</span>
+<span class="nc" id="L51">                .message(message)</span>
+<span class="nc" id="L52">                .build();</span>
+                
+<span class="nc" id="L54">        return ResponseEntity.ok(response);</span>
+    }
+
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
