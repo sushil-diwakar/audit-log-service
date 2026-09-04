@@ -6,7 +6,7 @@ A lightweight, cryptographically verifiable, append-only audit ledger built with
 
 
 
-This project implements a compliance-grade audit logging Audit Log Service designed for security and regulatory environments. It utilizes a continuous cryptographic hash-chain (similar to a cryptographic hash chain) to mathematically guarantee the integrity of all logged events and definitively detect unauthorized tampering.
+This project implements a compliance-grade audit logging Audit Log Service designed for security and regulatory environments. It utilizes a continuous cryptographic hash-chain to mathematically guarantee the integrity of all logged events and definitively detect unauthorized tampering.
 
 
 
@@ -24,7 +24,7 @@ This project implements a compliance-grade audit logging Audit Log Service desig
 
 
 
-1. Create a MySQL database named udit_db.
+1. Create a MySQL database named audit_db.
 
    `sql
 
@@ -32,7 +32,7 @@ This project implements a compliance-grade audit logging Audit Log Service desig
 
    `
 
-2. Set your environment variables (or rely on the defaults in pplication.yml):
+2. Set your environment variables (or rely on the defaults in application.yml):
 
    `
 
@@ -46,7 +46,7 @@ This project implements a compliance-grade audit logging Audit Log Service desig
 
 3. Run the application:
 
-   `ash
+   `bash
 
    mvn spring-boot:run
 
@@ -68,9 +68,9 @@ This project implements a compliance-grade audit logging Audit Log Service desig
 
 3. The application is configured to run in the dev profile by default. Enter the default credentials:
 
-   - **Username**: dmin
+   - **Username**: admin
 
-   - **Password**: dmin
+   - **Password**: admin
 
 4. Click **Authorize** and then **Close**.
 
@@ -96,7 +96,7 @@ This application requires security to access the APIs. The security implementati
 
 - **Security Strategy**: HTTP Basic Authentication
 
-- **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} (defaults to admin/admin if unset).
+- **Credentials**: Uses environment variables ${DEV_USER} and ${DEV_PASSWORD} if unset).
 
 - **Authorization**: The default user is automatically assigned all required scopes/roles.
 
@@ -138,7 +138,7 @@ To execute the entire test suite (Unit, Integration, and Security tests) and gen
 
 
 
-`ash
+`bash
 
 mvn clean verify
 
@@ -202,7 +202,7 @@ mvn clean verify
 
 Record a new event into the append-only ledger. Requires SCOPE_audit:write.
 
-`ash
+`bash
 
 curl -X POST http://localhost:8080/audit/events \
 
@@ -232,7 +232,7 @@ curl -X POST http://localhost:8080/audit/events \
 
 Retrieve audit events with optional filtering and pagination. Requires SCOPE_audit:read.
 
-`ash
+`bash
 
 curl -X GET "http://localhost:8080/audit/events?actorId=user-123&page=0&size=20" -u admin:admin
 
@@ -244,7 +244,7 @@ curl -X GET "http://localhost:8080/audit/events?actorId=user-123&page=0&size=20"
 
 Perform structured redaction on specific JSON pointers within a payload. The original content-hash commitment is preserved. Requires SCOPE_audit:redact.
 
-`ash
+`bash
 
 curl -X POST http://localhost:8080/audit/events/{id}/redact \
 
@@ -266,7 +266,7 @@ curl -X POST http://localhost:8080/audit/events/{id}/redact \
 
 Soft-archive all active records strictly older than the specified cutoff timestamp. Requires SCOPE_audit:archive.
 
-`ash
+`bash
 
 curl -X POST "http://localhost:8080/audit/retention/archive?before=2025-01-01T00:00:00Z" -u admin:admin
 
@@ -278,7 +278,7 @@ curl -X POST "http://localhost:8080/audit/retention/archive?before=2025-01-01T00
 
 Export a self-contained, offline-verifiable JSON bundle for a specific resource or actor. Requires SCOPE_audit:export.
 
-`ash
+`bash
 
 curl -X GET "http://localhost:8080/audit/export?resourceId=auth-server" -u admin:admin
 
@@ -290,7 +290,7 @@ curl -X GET "http://localhost:8080/audit/export?resourceId=auth-server" -u admin
 
 Trigger an exhaustive cryptographic verification of the entire database hash-chain. Requires SCOPE_audit:verify.
 
-`ash
+`bash
 
 curl -X GET http://localhost:8080/audit/verify -u admin:admin
 
@@ -314,7 +314,7 @@ Implemented a strictly append-only audit ledger where each event is cryptographi
 
 - **Structured Redaction**: Granular JSON node redaction replaces targeted data with {"redacted": true}. The original contentHash is retained as a mathematical commitment.
 
-- **Bulk Export**: Regulators can export a subset of records. The export logically threads the global chain and provides boundary metadata (irstExportedRecordPreviousHash) allowing independent cryptographic verification of the sparse subset.
+- **Bulk Export**: Regulators can export a subset of records. The export logically threads the global chain and provides boundary metadata (firstExportedRecordPreviousHash) allowing independent cryptographic verification of the sparse subset.
 
 
 
@@ -430,7 +430,7 @@ UPDATE audit_records SET status = 'REDACTED', payload = '{"redacted": true}', re
 
 This prototype strictly addresses the core cryptographic mechanisms. In a production environment, the following limitations must be addressed:
 
-* **Memory Pressure**: The export and verification services currently load the entire chain into memory (indAll()) to build a topological map. For very large datasets, this will cause Out-Of-Memory (OOM) errors. Production would require streaming or Recursive CTEs.
+* **Memory Pressure**: The export and verification services currently load the entire chain into memory (findAll()) to build a topological map. For very large datasets, this will cause Out-Of-Memory (OOM) errors. Production would require streaming or Recursive CTEs.
 
 * **Completeness Trust Boundary**: The audit ledger cryptographically guarantees the integrity of events *it receives*. However, if an upstream system has a bug and fails to emit an event, the ledger will be blind to it. We cannot mathematically guarantee global real-world completeness.
 

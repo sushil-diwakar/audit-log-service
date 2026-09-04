@@ -97,4 +97,4 @@ Executable rate-limit tests in RateLimitTest prove:
 ## 13. Known Testing Limitations
 
 - **Completeness Guarantees**: We cannot test or prove that upstream systems actually emit events properly, only that received events are intact.
-- **Scale Limits**: Tests do not simulate multi-million row graphs which would hit OOM exceptions due to indAll().
+- **Scale Limits**: Tests do not simulate multi-million row graphs which would hit OOM exceptions due to findAll().
