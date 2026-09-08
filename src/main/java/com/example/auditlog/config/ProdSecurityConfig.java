@@ -39,6 +39,7 @@ public class ProdSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/audit/export/verify").permitAll()
                 .requestMatchers("/audit/**").authenticated()
                 .anyRequest().authenticated()
             )

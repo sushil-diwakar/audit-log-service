@@ -21,6 +21,7 @@ class HashServiceTest {
     void setUp() {
         mapper = new ObjectMapper();
         hashService = new HashService(mapper);
+        org.springframework.test.util.ReflectionTestUtils.setField(hashService, "hmacSecret", "test-hmac-secret");
     }
 
     private AuditRecord createBaseRecord() throws JsonProcessingException {

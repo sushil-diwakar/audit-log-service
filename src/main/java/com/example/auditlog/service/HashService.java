@@ -101,18 +101,28 @@ public class HashService {
      * Converts a byte array into a lowercase hexadecimal string.
      */
 
+    @org.springframework.beans.factory.annotation.Value("${audit.redaction.hmac-secret}")
+    private String hmacSecret;
+
     /**
      * Calculates a cryptographic commitment for a redaction event.
-     * Binds the original content hash to the new redacted payload.
+     * Binds the original content hash, identity, chain linkage, and new redacted payload using HMAC.
      */
-    public String calculateRedactionDigest(String originalContentHash, JsonNode redactedPayload) {
+    public String calculateRedactionDigest(AuditRecord record, JsonNode redactedPayload) {
         try {
             String payloadString = mapper.writeValueAsString(canonicalizeNode(redactedPayload));
-            String combined = originalContentHash + "|REDACTED|" + payloadString;
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hashBytes = digest.digest(combined.getBytes(StandardCharsets.UTF_8));
+            String combined = record.getId().toString() + "|" +
+                              record.getPreviousHash() + "|" +
+                              record.getContentHash() + "|" +
+                              "REDACTED|" + payloadString + "|" +
+                              record.getRecordHash();
+
+            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
+            javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(hmacSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            mac.init(secretKey);
+            byte[] hashBytes = mac.doFinal(combined.getBytes(StandardCharsets.UTF_8));
             return bytesToHex(hashBytes);
-        } catch (NoSuchAlgorithmException | JsonProcessingException e) {
+        } catch (NoSuchAlgorithmException | java.security.InvalidKeyException | JsonProcessingException e) {
             throw new IllegalStateException("Failed to calculate redaction digest", e);
         }
     }

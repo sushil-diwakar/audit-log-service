@@ -27,10 +27,10 @@ public class DevSecurityConfig {
     @Value("${audit.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
-    @Value("${spring.security.user.name:admin}")
+    @Value("${spring.security.user.name}")
     private String devUsername;
 
-    @Value("${spring.security.user.password:admin}")
+    @Value("${spring.security.user.password}")
     private String devPassword;
 
     @Bean
@@ -52,6 +52,7 @@ public class DevSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.POST, "/audit/export/verify").permitAll()
                 .requestMatchers("/audit/**").authenticated()
                 .anyRequest().authenticated()
             )

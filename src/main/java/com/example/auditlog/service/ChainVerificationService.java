@@ -96,7 +96,7 @@ public class ChainVerificationService {
 
                 
 
-                String expectedRedactionDigest = hashService.calculateRedactionDigest(storedContentHash, record.getPayload());
+                String expectedRedactionDigest = hashService.calculateRedactionDigest(record, record.getPayload());
 
                 if (record.getRedactionDigest() == null || !record.getRedactionDigest().equals(expectedRedactionDigest)) {
 

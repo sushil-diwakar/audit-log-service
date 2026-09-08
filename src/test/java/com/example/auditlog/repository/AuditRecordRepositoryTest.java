@@ -19,7 +19,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE) // Use real MySQL database
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@org.springframework.test.context.TestPropertySource(properties = {"DB_URL=jdbc:mysql://localhost:3306/auditdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true", "DB_USERNAME=root", "DB_PASSWORD=root", "audit.redaction.hmac-secret=test-secret"})
 class AuditRecordRepositoryTest {
 
     @Autowired
