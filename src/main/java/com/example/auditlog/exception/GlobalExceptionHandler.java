@@ -51,8 +51,6 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.valueOf(ex.getStatusCode().value()), ex.getReason());
     }
 
-    // Removed catch-all Exception handler to allow Spring Boot to handle 404/405 naturally
-
     private ResponseEntity<Object> buildResponse(HttpStatus status, String message) {
         Map<String, Object> body = Map.of(
                 "status", status.value(),

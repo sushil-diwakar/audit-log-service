@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.example.auditlog.security.DevSecurityConfigTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.270 s -- in com.example.auditlog.security.DevSecurityConfigTest

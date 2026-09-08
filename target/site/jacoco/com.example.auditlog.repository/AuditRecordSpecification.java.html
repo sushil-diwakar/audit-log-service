@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AuditRecordSpecification.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.repository</a> &gt; <span class="el_source">AuditRecordSpecification.java</span></div><h1>AuditRecordSpecification.java</h1><pre class="source lang-java linenums">package com.example.auditlog.repository;
+
+import com.example.auditlog.entity.AuditRecord;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+
+<span class="nc" id="L11">public class AuditRecordSpecification {</span>
+
+    public static Specification&lt;AuditRecord&gt; withFilters(String actorId, String resourceType, String resourceId, String eventType, Instant from, Instant to) {
+<span class="fc" id="L14">        return (root, query, cb) -&gt; {</span>
+<span class="fc" id="L15">            List&lt;Predicate&gt; predicates = new ArrayList&lt;&gt;();</span>
+
+<span class="pc bpc" id="L17" title="1 of 4 branches missed.">            if (actorId != null &amp;&amp; !actorId.isBlank()) {</span>
+<span class="fc" id="L18">                predicates.add(cb.equal(root.get(&quot;actorId&quot;), actorId));</span>
+            }
+<span class="pc bpc" id="L20" title="1 of 4 branches missed.">            if (resourceType != null &amp;&amp; !resourceType.isBlank()) {</span>
+<span class="fc" id="L21">                predicates.add(cb.equal(root.get(&quot;resourceType&quot;), resourceType));</span>
+            }
+<span class="pc bpc" id="L23" title="1 of 4 branches missed.">            if (resourceId != null &amp;&amp; !resourceId.isBlank()) {</span>
+<span class="fc" id="L24">                predicates.add(cb.equal(root.get(&quot;resourceId&quot;), resourceId));</span>
+            }
+<span class="pc bpc" id="L26" title="1 of 4 branches missed.">            if (eventType != null &amp;&amp; !eventType.isBlank()) {</span>
+<span class="fc" id="L27">                predicates.add(cb.equal(root.get(&quot;eventType&quot;), eventType));</span>
+            }
+<span class="fc bfc" id="L29" title="All 2 branches covered.">            if (from != null) {</span>
+<span class="fc" id="L30">                predicates.add(cb.greaterThanOrEqualTo(root.get(&quot;timestamp&quot;), from));</span>
+            }
+<span class="fc bfc" id="L32" title="All 2 branches covered.">            if (to != null) {</span>
+<span class="fc" id="L33">                predicates.add(cb.lessThanOrEqualTo(root.get(&quot;timestamp&quot;), to));</span>
+            }
+
+<span class="fc" id="L36">            return cb.and(predicates.toArray(new Predicate[0]));</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

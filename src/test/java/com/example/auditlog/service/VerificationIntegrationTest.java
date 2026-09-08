@@ -868,4 +868,98 @@ class VerificationIntegrationTest {
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isEqualTo(ChainViolationType.REDACTION_METADATA_MISMATCH);
     }
+    @Test
+    void testTamperContent_AllFields() throws Exception {
+        AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-all"));
+
+        // tamper eventType
+        jdbcTemplate.update("UPDATE audit_records SET event_type = 'HACKED' WHERE actor_id = 'actor-all'");
+        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        jdbcTemplate.update("UPDATE audit_records SET event_type = 'TEST_EVENT' WHERE actor_id = 'actor-all'"); // revert
+
+        // tamper resourceType
+        jdbcTemplate.update("UPDATE audit_records SET resource_type = 'HACKED' WHERE actor_id = 'actor-all'");
+        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        jdbcTemplate.update("UPDATE audit_records SET resource_type = 'SYS' WHERE actor_id = 'actor-all'"); // revert
+
+        // tamper resourceId
+        jdbcTemplate.update("UPDATE audit_records SET resource_id = '999' WHERE actor_id = 'actor-all'");
+        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        jdbcTemplate.update("UPDATE audit_records SET resource_id = '1' WHERE actor_id = 'actor-all'"); // revert
+
+        // tamper payload
+        jdbcTemplate.update("UPDATE audit_records SET payload = '{\"action\":\"hacked\"}' WHERE actor_id = 'actor-all'");
+        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        jdbcTemplate.update("UPDATE audit_records SET payload = '{\"action\":\"test\"}' WHERE actor_id = 'actor-all'"); // revert
+
+        // tamper timestamp
+        jdbcTemplate.update("UPDATE audit_records SET timestamp = ? WHERE actor_id = 'actor-all'", Instant.now().minusSeconds(3600));
+        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+    }
+
+    @Test
+    void testMissingGenesis_DetectsMissingGenesis() throws Exception {
+        auditService.createAuditEvent(createRequest("actor-missing-gen"));
+        jdbcTemplate.update("UPDATE audit_records SET previous_hash = 'NON_EXISTENT' WHERE previous_hash = 'GENESIS'");
+        VerificationResponse response = verificationService.verifyChain();
+        assertThat(response.isValid()).isFalse();
+        assertThat(response.getViolationType()).isIn(ChainViolationType.BROKEN_PREVIOUS_LINK, ChainViolationType.MISSING_GENESIS, ChainViolationType.RECORD_HASH_MISMATCH, ChainViolationType.DISCONNECTED_RECORD);
+    }
+
+    @Test
+    void testMultipleGenesis_DetectsMultipleGenesis() throws Exception {
+        AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-gen-1"));
+        AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-gen-2"));
+        // The database schema has a UNIQUE constraint on previous_hash. We assert it actively prevents multiple genesis.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+            jdbcTemplate.update("UPDATE audit_records SET previous_hash = 'GENESIS' WHERE actor_id = 'actor-gen-2'")
+        ).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
+    @Test
+    void testBrokenPreviousLink_DetectsBrokenLink() throws Exception {
+        auditService.createAuditEvent(createRequest("actor-brk-1"));
+        AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-brk-2"));
+        jdbcTemplate.update("UPDATE audit_records SET previous_hash = 'NON_EXISTENT' WHERE actor_id = 'actor-brk-2'");
+        AuditRecord record2 = repository.findById(evt2.getId()).get();
+        String contentHash = hashService.calculateContentHash(record2);
+        String recordHash = hashService.calculateRecordHash(contentHash, "NON_EXISTENT");
+        jdbcTemplate.update("UPDATE audit_records SET content_hash = ?, record_hash = ? WHERE actor_id = 'actor-brk-2'", contentHash, recordHash);
+
+        VerificationResponse response = verificationService.verifyChain();
+        assertThat(response.isValid()).isFalse();
+        assertThat(response.getViolationType()).isIn(ChainViolationType.BROKEN_PREVIOUS_LINK, ChainViolationType.RECORD_HASH_MISMATCH, ChainViolationType.DISCONNECTED_RECORD);
+    }
+
+    @Test
+    void testFork_DetectsFork() throws Exception {
+        AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-fork-1"));
+        AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-fork-2"));
+        AuditEventResponse evt3 = auditService.createAuditEvent(createRequest("actor-fork-3"));
+
+        AuditRecord record1 = repository.findById(evt1.getId()).get();
+
+        // The database schema has a UNIQUE constraint on previous_hash. We assert it actively prevents forks.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+            jdbcTemplate.update("UPDATE audit_records SET previous_hash = ? WHERE actor_id = 'actor-fork-3'", record1.getRecordHash())
+        ).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
+    @Test
+    void testCycle_DetectsCycle() throws Exception {
+        AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-cyc-1"));
+        AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-cyc-2"));
+
+        AuditRecord record1 = repository.findById(evt1.getId()).get();
+        AuditRecord record2 = repository.findById(evt2.getId()).get();
+
+        jdbcTemplate.update("UPDATE audit_records SET previous_hash = ? WHERE actor_id = 'actor-cyc-1'", record2.getRecordHash());
+        String contentHash = hashService.calculateContentHash(record1);
+        String recordHash = hashService.calculateRecordHash(contentHash, record2.getRecordHash());
+        jdbcTemplate.update("UPDATE audit_records SET content_hash = ?, record_hash = ? WHERE actor_id = 'actor-cyc-1'", contentHash, recordHash);
+
+        VerificationResponse response = verificationService.verifyChain();
+        assertThat(response.isValid()).isFalse();
+        assertThat(response.getViolationType()).isIn(ChainViolationType.CYCLE_DETECTED, ChainViolationType.MISSING_GENESIS);
+    }
 }

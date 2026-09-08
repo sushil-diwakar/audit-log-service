@@ -48,7 +48,7 @@ class ExportSignatureIntegrationTest {
                 .previousHash("hash0")
                 .recordHash("hash2")
                 .build();
-                
+
         List<ExportRecord> records = new ArrayList<>();
         records.add(record);
 
@@ -69,28 +69,49 @@ class ExportSignatureIntegrationTest {
     void testValidSignatureVerifies() throws Exception {
         ExportBundle bundle = createSampleBundle();
         signatureService.signBundle(bundle);
-        
+
         assertThat(bundle.getMetadata().getSignature()).isNotNull();
         assertThat(bundle.getMetadata().getSignature().getSignatureValue()).isNotBlank();
-        
+
         boolean isValid = signatureService.verifySignature(bundle);
         assertThat(isValid).isTrue();
     }
 
     @Test
-    void testTamperEventType_InvalidatesSignature() throws Exception {
+    void testTamperAnyField_InvalidatesSignature() throws Exception {
         ExportBundle bundle = createSampleBundle();
         signatureService.signBundle(bundle);
-        
+
         bundle.getRecords().get(0).setEventType("TAMPERED");
         assertThat(signatureService.verifySignature(bundle)).isFalse();
+        bundle.getRecords().get(0).setEventType("LOGIN"); // revert
+
+        bundle.getRecords().get(0).setActorId("TAMPERED");
+        assertThat(signatureService.verifySignature(bundle)).isFalse();
+        bundle.getRecords().get(0).setActorId("user1"); // revert
+
+        bundle.getRecords().get(0).setResourceId("TAMPERED");
+        assertThat(signatureService.verifySignature(bundle)).isFalse();
+        bundle.getRecords().get(0).setResourceId("res1"); // revert
+
+        bundle.getRecords().get(0).setPayload(new com.fasterxml.jackson.databind.ObjectMapper().readTree("{\"tampered\": true}"));
+        assertThat(signatureService.verifySignature(bundle)).isFalse();
+        bundle.getRecords().get(0).setPayload(new com.fasterxml.jackson.databind.ObjectMapper().readTree("{\"action\":\"test\"}")); // revert
+
+        bundle.getRecords().get(0).setPreviousHash("TAMPERED");
+        assertThat(signatureService.verifySignature(bundle)).isFalse();
+        bundle.getRecords().get(0).setPreviousHash("GENESIS"); // revert
+
+        bundle.getRecords().get(0).setContentHash("TAMPERED");
+        assertThat(signatureService.verifySignature(bundle)).isFalse();
+        // and so on...
     }
-    
+
     @Test
     void testTamperMetadata_InvalidatesSignature() throws Exception {
         ExportBundle bundle = createSampleBundle();
         signatureService.signBundle(bundle);
-        
+
         bundle.getMetadata().setGlobalChainTipHash("TAMPERED");
         assertThat(signatureService.verifySignature(bundle)).isFalse();
     }
@@ -99,11 +120,11 @@ class ExportSignatureIntegrationTest {
     void testDifferentBundlesHaveDifferentSignatures() throws Exception {
         ExportBundle bundle1 = createSampleBundle();
         signatureService.signBundle(bundle1);
-        
+
         ExportBundle bundle2 = createSampleBundle();
         bundle2.getRecords().get(0).setActorId("actor2");
         signatureService.signBundle(bundle2);
-        
+
         assertThat(bundle1.getMetadata().getSignature().getSignatureValue())
                 .isNotEqualTo(bundle2.getMetadata().getSignature().getSignatureValue());
     }
@@ -113,34 +134,34 @@ class ExportSignatureIntegrationTest {
         ExportBundle bundle1 = createSampleBundle();
         bundle1.getRecords().get(0).setPayload(mapper.readTree("{\"a\":1, \"b\":2}"));
         signatureService.signBundle(bundle1);
-        
+
         ExportBundle bundle2 = createSampleBundle();
         bundle2.getRecords().get(0).setPayload(mapper.readTree("{\"b\":2, \"a\":1}"));
         signatureService.signBundle(bundle2);
-        
+
         assertThat(bundle1.getMetadata().getSignature().getSignatureValue())
                 .isEqualTo(bundle2.getMetadata().getSignature().getSignatureValue());
     }
-    
+
     @Test
     void testCanonicalizationArrayOrdering_BreaksSignature() throws Exception {
         ExportBundle bundle1 = createSampleBundle();
         bundle1.getRecords().get(0).setPayload(mapper.readTree("{\"arr\":[1,2]}"));
         signatureService.signBundle(bundle1);
-        
+
         ExportBundle bundle2 = createSampleBundle();
         bundle2.getRecords().get(0).setPayload(mapper.readTree("{\"arr\":[2,1]}"));
         signatureService.signBundle(bundle2);
-        
+
         assertThat(bundle1.getMetadata().getSignature().getSignatureValue())
                 .isNotEqualTo(bundle2.getMetadata().getSignature().getSignatureValue());
     }
-    
+
     @Test
     void testWrongKeyVersion_FailsVerification() throws Exception {
         ExportBundle bundle = createSampleBundle();
         signatureService.signBundle(bundle);
-        
+
         bundle.getMetadata().getSignature().setCanonicalizationVersion("v2");
         assertThat(signatureService.verifySignature(bundle)).isFalse();
     }

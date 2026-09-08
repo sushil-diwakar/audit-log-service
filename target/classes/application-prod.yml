@@ -1,0 +1,19 @@
+﻿spring:
+  config:
+    activate:
+      on-profile: prod
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI}
+
+audit:
+  security:
+    oauth2:
+      audience: ${OIDC_AUDIENCE:}
+  cors:
+    allowed-origins: ${PROD_ALLOWED_ORIGINS}
+  rate-limit:
+    capacity: 1000
+    refill-tokens: 1000

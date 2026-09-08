@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,6 +39,9 @@ class ExportIntegrationTest {
 
     @Autowired
     private AuditService auditService;
+
+    @Autowired
+    private ExportService exportService;
 
     @Autowired
     private RedactionService redactionService;
@@ -94,7 +98,7 @@ class ExportIntegrationTest {
         assertEquals("userB", bundle.getMetadata().getQuery().getActorId());
         assertNull(bundle.getMetadata().getQuery().getResourceId());
         assertEquals(2, bundle.getMetadata().getRecordCount());
-        
+
         List<ExportRecord> records = bundle.getRecords();
         assertEquals(2, records.size());
 
@@ -137,7 +141,7 @@ class ExportIntegrationTest {
             String expectedRecordHash = hashService.calculateRecordHash(expectedContentHash, record.getPreviousHash());
             assertEquals(expectedRecordHash, record.getRecordHash());
         }
-        
+
         // Assert Archive/Redacted statuses
         assertEquals(AuditRecordStatus.REDACTED, exportedR2.getStatus());
         assertEquals(AuditRecordStatus.ARCHIVED, exportedR4.getStatus());
@@ -147,7 +151,7 @@ class ExportIntegrationTest {
     void testExportByResourceId() throws Exception {
         createRecord("userA", "RES1", "{\"data\":\"1\"}");
         createRecord("userB", "RES1", "{\"data\":\"2\"}");
-        
+
         MvcResult result = mockMvc.perform(get("/audit/export?resourceId=RES1"))
                 .andExpect(status().isOk())
                 .andReturn();
@@ -166,5 +170,31 @@ class ExportIntegrationTest {
         req.setPayload(objectMapper.readTree(payloadJson));
         req.setTimestamp(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS));
         return auditService.createAuditEvent(req);
+    }
+    private AuditEventRequest createRequest(String actorId) throws Exception {
+        AuditEventRequest req = new AuditEventRequest();
+        req.setActorId(actorId);
+        req.setEventType("TEST_EVENT");
+        req.setResourceType("SYS");
+        req.setResourceId("1");
+        req.setPayload(objectMapper.readTree("{\"action\":\"test\"}"));
+        req.setTimestamp(Instant.now());
+        return req;
+    }
+
+    @Test
+    void testSparseExportBehavior() throws Exception {
+        // Create 3 records, but only middle one is from actor-sparse
+        AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-other"));
+        AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-sparse"));
+        AuditEventResponse evt3 = auditService.createAuditEvent(createRequest("actor-other-2"));
+
+        ExportBundle bundle = exportService.export("actor-sparse", null);
+
+        assertThat(bundle.getRecords()).hasSize(1);
+        assertThat(bundle.getRecords().get(0).getId()).isEqualTo(evt2.getId());
+
+        String expectedPreviousHash = auditRecordRepository.findById(evt1.getId()).get().getRecordHash();
+        assertThat(bundle.getRecords().get(0).getPreviousHash()).isEqualTo(expectedPreviousHash);
     }
 }

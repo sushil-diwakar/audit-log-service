@@ -71,37 +71,37 @@ public class RedactionIntegrationTest {
         req.setPayload(objectMapper.readTree(
             "{\"email\":\"secret@test.com\",\"nested\":{\"ssn\":\"123-45-6789\",\"age\":30},\"tags\":[\"a\",\"b\"]}"
         ));
-        
+
         AuditEventResponse created = auditService.createAuditEvent(req);
         UUID id = created.getId();
-        
+
         AuditRecord originalRecord = repository.findById(id).orElseThrow();
         String originalContentHash = originalRecord.getContentHash();
         String originalRecordHash = originalRecord.getRecordHash();
         String originalPreviousHash = originalRecord.getPreviousHash();
-        
+
         assertThat(originalContentHash).isNotNull();
         assertThat(verificationService.verifyChain().isValid()).isTrue();
 
         // 2. Redact specific fields
         RedactionRequest redactReq = new RedactionRequest(List.of("/email", "/nested/ssn"));
         RedactionResponse response = redactionService.redactRecord(id, redactReq);
-        
+
         assertThat(response.getStatus()).isEqualTo(AuditRecordStatus.REDACTED);
 
         // 3. Verify the payload was structured-redacted correctly
         AuditRecord redactedRecord = repository.findById(id).orElseThrow();
         assertThat(redactedRecord.getStatus()).isEqualTo(AuditRecordStatus.REDACTED);
-        
+
         // Assert cryptographic fields are strictly unchanged
         assertThat(redactedRecord.getContentHash()).isEqualTo(originalContentHash);
         assertThat(redactedRecord.getRecordHash()).isEqualTo(originalRecordHash);
         assertThat(redactedRecord.getPreviousHash()).isEqualTo(originalPreviousHash);
-        
+
         // Assert event metadata unchanged
         assertThat(redactedRecord.getActorId()).isEqualTo("admin");
         assertThat(redactedRecord.getEventType()).isEqualTo("USER_UPDATE");
-        
+
         // Assert payload redaction structure - explicit check for multiple fields
         String payloadJson = redactedRecord.getPayload().toString();
         assertThat(payloadJson).contains("\"redacted\":true");
@@ -137,12 +137,12 @@ public class RedactionIntegrationTest {
 
         AuditRecord redactedRecord = repository.findById(id).orElseThrow();
         String payloadJson = redactedRecord.getPayload().toString();
-        
+
         // Target is removed, unrelated array elements remain
         assertThat(payloadJson).contains("\"redacted\":true");
         assertThat(payloadJson).doesNotContain("\"111\"");
         assertThat(payloadJson).contains("\"222\"");
-        
+
         assertThat(verificationService.verifyChain().isValid()).isTrue();
     }
 

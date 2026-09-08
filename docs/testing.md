@@ -10,15 +10,15 @@ BUILD SUCCESS
 
 ## 2. Test Summary
 
-Total: 82
-Failures: 0
-Errors: 0
-Skipped: 0
+* **Total**: 130
+* **Failures**: 0
+* **Errors**: 0
+* **Skipped**: 0
 
 ## 3. Coverage
 
-Instruction: 87%
-Branch: 70%
+* **Instruction**: 91%
+* **Branch**: 75%
 Line: N/A (Not strictly extracted, but high instruction coverage implies high line coverage)
 Method: N/A
 

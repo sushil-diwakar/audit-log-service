@@ -126,7 +126,7 @@ class HashServiceTest {
         String baseHash = hashService.calculateContentHash(record1);
 
         AuditRecord record2 = createBaseRecord();
-        
+
         // Mutate ignored fields
         record2.setId(UUID.randomUUID());
         record2.setCreatedAt(Instant.parse("2099-01-01T00:00:00Z"));
@@ -144,7 +144,7 @@ class HashServiceTest {
         AuditRecord record1 = createBaseRecord();
         // Keys: a, b, c
         record1.setPayload(mapper.readTree("{\"a\": 1, \"b\": 2, \"c\": 3}"));
-        
+
         AuditRecord record2 = createBaseRecord();
         // Keys: c, a, b (same semantic content, different order)
         record2.setPayload(mapper.readTree("{\"c\": 3, \"a\": 1, \"b\": 2}"));
@@ -154,12 +154,12 @@ class HashServiceTest {
 
         assertThat(hash1).isEqualTo(hash2);
     }
-    
+
     @Test
     void testNestedJsonPayloadKeyOrderingIsDeterministic() throws Exception {
         AuditRecord record1 = createBaseRecord();
         record1.setPayload(mapper.readTree("{\"root\": {\"z\": 1, \"a\": 2}}"));
-        
+
         AuditRecord record2 = createBaseRecord();
         record2.setPayload(mapper.readTree("{\"root\": {\"a\": 2, \"z\": 1}}"));
 
@@ -181,5 +181,38 @@ class HashServiceTest {
 
         // Arrays are ordered, changing their order should result in different hashes
         assertThat(hash1).isNotEqualTo(hash2);
+    }
+    @Test
+    void testNullValuesAreDeterministic() throws Exception {
+        AuditRecord record1 = createBaseRecord();
+        record1.setResourceId(null);
+        record1.setPayload(mapper.readTree("{\"a\": null}"));
+
+        AuditRecord record2 = createBaseRecord();
+        record2.setResourceId(null);
+        record2.setPayload(mapper.readTree("{\"a\": null}"));
+
+        assertThat(hashService.calculateContentHash(record1))
+                .isEqualTo(hashService.calculateContentHash(record2));
+    }
+
+    @Test
+    void testRecordHashChangesWhenPreviousHashChanges() {
+        String contentHash = "someContentHash";
+        String prevHash1 = "hash1";
+        String prevHash2 = "hash2";
+
+        assertThat(hashService.calculateRecordHash(contentHash, prevHash1))
+                .isNotEqualTo(hashService.calculateRecordHash(contentHash, prevHash2));
+    }
+
+    @Test
+    void testRecordHashChangesWhenContentHashChanges() {
+        String contentHash1 = "contentHash1";
+        String contentHash2 = "contentHash2";
+        String prevHash = "prevHash";
+
+        assertThat(hashService.calculateRecordHash(contentHash1, prevHash))
+                .isNotEqualTo(hashService.calculateRecordHash(contentHash2, prevHash));
     }
 }

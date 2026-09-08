@@ -1,0 +1,51 @@
+spring:
+  profiles:
+    active: dev
+
+  application:
+    name: audit-log-service
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: AuditLogHikariPool
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    database: mysql
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${SHOW_SQL:false}
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+server:
+  port: ${PORT:8080}
+
+# Springdoc OpenAPI & Swagger UI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+audit:
+  signature:
+    key-id: ${AUDIT_SIGNATURE_KEY_ID:default}
+    private-key: ${AUDIT_SIGNATURE_PRIVATE_KEY:}
+    public-key: ${AUDIT_SIGNATURE_PUBLIC_KEY:}

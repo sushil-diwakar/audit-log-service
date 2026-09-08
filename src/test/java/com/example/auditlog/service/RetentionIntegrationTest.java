@@ -80,20 +80,20 @@ public class RetentionIntegrationTest {
         String expResourceType = initialRecord1.getResourceType();
         String expResourceId = initialRecord1.getResourceId();
         String expPayload = initialRecord1.getPayload().toString();
-        
+
         // 2. Perform archival for records before t2 (should archive only the first one)
         var response = retentionService.archiveRecordsBefore(t2);
-        
+
         // Test 1: Expected records archived
         assertThat(response.getArchivedCount()).isEqualTo(1);
-        
+
         List<AuditRecord> afterFirstArchival = auditRecordRepository.findAll();
         AuditRecord record1 = afterFirstArchival.stream().filter(r -> r.getTimestamp().equals(t1)).findFirst().orElseThrow();
         AuditRecord record2 = afterFirstArchival.stream().filter(r -> r.getTimestamp().equals(t2)).findFirst().orElseThrow();
         AuditRecord record3 = afterFirstArchival.stream().filter(r -> r.getTimestamp().equals(t3)).findFirst().orElseThrow();
-        
+
         assertThat(record1.getStatus()).isEqualTo(AuditRecordStatus.ARCHIVED);
-        
+
         // Test 2: Newer records remain active
         assertThat(record2.getStatus()).isEqualTo(AuditRecordStatus.ACTIVE);
         assertThat(record3.getStatus()).isEqualTo(AuditRecordStatus.ACTIVE);
@@ -105,16 +105,18 @@ public class RetentionIntegrationTest {
         // Test 5: Prove archived records retain hashes and data
         assertThat(record1.getPreviousHash()).isEqualTo(expPreviousHash);
         assertThat(record1.getRecordHash()).isEqualTo(expRecordHash);
+        assertThat(record1.getContentHash()).isEqualTo(initialRecord1.getContentHash());
+        assertThat(record1.getTimestamp()).isEqualTo(initialRecord1.getTimestamp());
         assertThat(record1.getEventType()).isEqualTo(expEventType);
         assertThat(record1.getActorId()).isEqualTo(expActorId);
         assertThat(record1.getResourceType()).isEqualTo(expResourceType);
         assertThat(record1.getResourceId()).isEqualTo(expResourceId);
         assertThat(record1.getPayload().toString()).isEqualTo(expPayload);
-        
+
         // Test 4: Verification stays valid after archival
         VerificationResponse afterArchivalVerification = verificationService.verifyChain();
         assertThat(afterArchivalVerification.isValid()).isTrue();
-        
+
         // Archive one more
         var response3 = retentionService.archiveRecordsBefore(t3);
         assertThat(response3.getArchivedCount()).isEqualTo(1);

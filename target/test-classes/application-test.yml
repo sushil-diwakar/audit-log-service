@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: audit-log-service-test
+  datasource:
+    url: jdbc:mysql://localhost:3306/auditdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+audit:
+  redaction:
+    hmac-secret: test-hmac-secret-for-redaction-integrity

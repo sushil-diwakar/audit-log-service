@@ -40,4 +40,21 @@ public class RateLimitTest {
         mockMvc.perform(get("/audit/events").with(user("user2").authorities(new SimpleGrantedAuthority("SCOPE_audit:read"))))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void optionsPreflight_doesNotConsumeQuota() throws Exception {
+        // Send 5 OPTIONS requests (limit is 2)
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options("/audit/events")
+                    .header("Origin", "http://localhost:3000")
+                    .header("Access-Control-Request-Method", "GET"))
+                    .andExpect(status().isOk());
+        }
+
+        // Send 2 real requests, should still pass! (Because OPTIONS didn't consume bucket)
+        mockMvc.perform(get("/audit/events").with(user("user3").authorities(new SimpleGrantedAuthority("SCOPE_audit:read"))))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/audit/events").with(user("user3").authorities(new SimpleGrantedAuthority("SCOPE_audit:read"))))
+                .andExpect(status().isOk());
+    }
 }

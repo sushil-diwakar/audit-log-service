@@ -40,6 +40,9 @@ public class RedactionService {
 
         // 1. Validate all paths strictly before applying any mutations
         for (String pathStr : request.getPaths()) {
+            if (pathStr == null || pathStr.isEmpty() || pathStr.equals("/")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Root or empty JSON pointer is not allowed");
+            }
             JsonPointer pointer;
             try {
                 pointer = JsonPointer.compile(pathStr);
@@ -50,8 +53,21 @@ public class RedactionService {
             if (payloadCopy.at(pointer).isMissingNode()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Path not found: " + pathStr);
             }
-            
+
             validPointers.add(pointer);
+        }
+
+        // 1b. Reject overlapping paths
+        for (int i = 0; i < request.getPaths().size(); i++) {
+            for (int j = 0; j < request.getPaths().size(); j++) {
+                if (i != j) {
+                    String p1 = request.getPaths().get(i);
+                    String p2 = request.getPaths().get(j);
+                    if (p1.startsWith(p2 + "/") || p1.equals(p2)) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Overlapping or duplicate JSON Pointers not allowed: " + p1 + " overlaps with " + p2);
+                    }
+                }
+            }
         }
 
         // 2. Perform all-or-nothing mutations
@@ -61,7 +77,7 @@ public class RedactionService {
         for (JsonPointer pointer : validPointers) {
             JsonPointer parentPointer = pointer.head();
             String leafName = pointer.last().getMatchingProperty();
-            
+
             if (parentPointer == null || leafName == null) {
                 // If it's the root being redacted (unlikely, but supported)
                 payloadCopy = redactedMarker;
@@ -82,7 +98,7 @@ public class RedactionService {
         record.setPayload(payloadCopy);
         record.setStatus(AuditRecordStatus.REDACTED);
         record.setRedactionDigest(hashService.calculateRedactionDigest(record, payloadCopy));
-        
+
         auditRecordRepository.save(record);
 
         return RedactionResponse.builder()

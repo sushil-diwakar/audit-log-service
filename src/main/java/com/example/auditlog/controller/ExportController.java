@@ -34,7 +34,6 @@ public class ExportController {
         return ResponseEntity.ok(bundle);
     }
 
-    @PreAuthorize("hasAuthority('SCOPE_audit:verify')")
     @PostMapping("/export/verify")
     public ResponseEntity<SignatureVerificationResponse> verifyExportBundle(@RequestBody ExportBundle bundle) {
         boolean sigValid = exportSignatureService.verifySignature(bundle);
