@@ -6,6 +6,7 @@ com\example\auditlog\service\HashServiceTest.class
 com\example\auditlog\security\CorsTest.class
 com\example\auditlog\service\ConcurrentAppendTest.class
 com\example\auditlog\security\RateLimitTest.class
+com\example\auditlog\AdvancedSecurityAndFailureTest.class
 com\example\auditlog\repository\AuditRecordRepositoryTest.class
 com\example\auditlog\security\DevSecurityConfigTest.class
 com\example\auditlog\security\JwtValidationIntegrationTest.class

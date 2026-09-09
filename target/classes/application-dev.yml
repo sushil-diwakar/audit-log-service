@@ -4,8 +4,8 @@ spring:
       on-profile: dev
   security:
     user:
-      name: ${DEV_USER}
-      password: ${DEV_PASSWORD}
+      name: ${DEV_USER:root}
+      password: ${DEV_PASSWORD:root}
 
 audit:
   cors:

@@ -30,7 +30,13 @@ public class ExportService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one of actorId or resourceId must be provided");
         }
 
-        // Fetch all records to guarantee perfect topological order traversal
+        // Enforce bounded export limit
+        long count = auditRecordRepository.count();
+        if (count > 50000) {
+            throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "Export size exceeds maximum allowed bounded limit (50,000 records). Please refine the export strategy.");
+        }
+
+        // Fetch records to guarantee perfect topological order traversal
         List<AuditRecord> allRecords = auditRecordRepository.findAll();
         
         if (allRecords.isEmpty()) {

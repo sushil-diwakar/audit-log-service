@@ -10,9 +10,9 @@ spring:
     name: audit-log-service
 
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${DB_URL:jdbc}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       pool-name: AuditLogHikariPool
@@ -36,6 +36,7 @@ spring:
 
 server:
   port: ${PORT:8080}
+  forward-headers-strategy: framework
   tomcat:
     max-http-form-post-size: 5MB
 

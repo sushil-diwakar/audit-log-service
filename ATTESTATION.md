@@ -15,7 +15,7 @@ I, Sushil Kumar Diwakar, attest that this submission is my own individual work, 
 
 I used AI assistance to accelerate scaffolding implementation, documentation and debugging. I reviewed the design ran the tests myself accepted or modified AI recommendations intentionally and take responsibility for the correctness and integrity claims of this work.
 ## Test-case count
-- **Total Tests Run**: 132
+- **Total Tests Run**: 135
 - **Instruction Coverage**: 91%
 - **Branch Coverage**: 75%
 

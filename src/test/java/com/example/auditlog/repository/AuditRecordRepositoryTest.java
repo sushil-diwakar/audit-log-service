@@ -1,5 +1,8 @@
 package com.example.auditlog.repository;
 
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+
 import com.example.auditlog.entity.AuditRecord;
 import com.example.auditlog.entity.AuditRecordStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
