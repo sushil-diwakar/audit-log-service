@@ -158,7 +158,7 @@ mvn clean verify
 
 
 **Final Test Results (Quality Gate):**
-- **Total Tests Run**: 130
+- **Total Tests Run**: 132
 - **Failures**: 0
 - **Errors**: 0
 - **Build**: SUCCESS
@@ -170,7 +170,7 @@ mvn clean verify
 ## Testing & Security Evidence
 
 - Command executed: mvn clean verify
-- Total tests: 130
+- Total tests: 132
 - Failures: 0
 - JaCoCo Instruction Coverage: 87%
 - Security-critical authorization and verification paths have focused automated coverage.

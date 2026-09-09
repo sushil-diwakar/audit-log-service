@@ -2,11 +2,15 @@ spring:
   application:
     name: audit-log-service-test
   datasource:
-    url: jdbc:mysql://localhost:3306/auditdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
 
 audit:
   redaction:
-    hmac-secret: test-hmac-secret-for-redaction-integrity
+    hmac-secret: ""
+  signature:
+    key-id: test-key-1
+    private-key: ""
+    public-key: ""

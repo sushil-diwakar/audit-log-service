@@ -18,10 +18,26 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@org.springframework.test.context.TestPropertySource(properties = {"DB_URL=jdbc:mysql://localhost:3306/auditdb?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true", "DB_USERNAME=root", "DB_PASSWORD=root", "audit.redaction.hmac-secret=test-secret"})
-class AuditRecordRepositoryTest {
+@SpringBootTest
+@ActiveProfiles("dev")
+public class AuditRecordRepositoryTest {
+
+    @org.springframework.test.context.DynamicPropertySource
+    static void dynamicProperties(org.springframework.test.context.DynamicPropertyRegistry registry) throws Exception {
+        java.security.KeyPairGenerator generator = java.security.KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        java.security.KeyPair pair = generator.generateKeyPair();
+        registry.add("audit.signature.public-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPublic().getEncoded()));
+        registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
+        registry.add("audit.signature.key-id", () -> "test-key-dynamic");
+        registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.username", () -> "sa");
+        registry.add("spring.datasource.password", () -> "");
+        registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
+        registry.add("DEV_USER", () -> "test");
+        registry.add("DEV_PASSWORD", () -> "test");
+    }
 
     @Autowired
     private TestEntityManager entityManager;

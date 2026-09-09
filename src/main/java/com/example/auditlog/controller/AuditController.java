@@ -23,6 +23,9 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.RequestHeader;
+import java.util.concurrent.ConcurrentHashMap;
+
 @RestController
 @RequestMapping("/audit/events")
 @RequiredArgsConstructor
@@ -30,16 +33,30 @@ import java.util.Map;
 public class AuditController {
 
     private final AuditService auditService;
+    private final ConcurrentHashMap<String, ResponseEntity<AuditEventResponse>> idempotencyCache = new ConcurrentHashMap<>();
 
     /**
      * Endpoint to create a new audit event.
      * Requires valid DTO fields and returns HTTP 201 Created on success.
      */
-    @PreAuthorize("hasAuthority(\'SCOPE_audit:write\')")
+    @PreAuthorize("hasAuthority('SCOPE_audit:write')")
     @PostMapping
-    public ResponseEntity<AuditEventResponse> createEvent(@Valid @RequestBody AuditEventRequest request) {
+    public ResponseEntity<AuditEventResponse> createEvent(
+            @Valid @RequestBody AuditEventRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey) {
+        
+        if (idempotencyKey != null && idempotencyCache.containsKey(idempotencyKey)) {
+            return idempotencyCache.get(idempotencyKey);
+        }
+
         AuditEventResponse response = auditService.createAuditEvent(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        ResponseEntity<AuditEventResponse> responseEntity = ResponseEntity.status(HttpStatus.CREATED).body(response);
+
+        if (idempotencyKey != null) {
+            idempotencyCache.put(idempotencyKey, responseEntity);
+        }
+
+        return responseEntity;
     }
 
     /**

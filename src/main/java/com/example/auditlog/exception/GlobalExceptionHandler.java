@@ -51,6 +51,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.valueOf(ex.getStatusCode().value()), ex.getReason());
     }
 
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity<Object> handleDatabaseExceptions(org.springframework.dao.DataAccessException ex) {
+        // Fail-secure: Do not leak SQL or DB details
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.");
+    }
+
     private ResponseEntity<Object> buildResponse(HttpStatus status, String message) {
         Map<String, Object> body = Map.of(
                 "status", status.value(),
