@@ -23,12 +23,16 @@ public class ExportService {
 
     private final AuditRecordRepository auditRecordRepository;
     private final ExportSignatureService signatureService;
+    private final ResourceAuthorizationService authorizationService;
 
     @Transactional(readOnly = true)
     public ExportBundle export(String actorId, String resourceId) {
         if ((actorId == null || actorId.isBlank()) && (resourceId == null || resourceId.isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one of actorId or resourceId must be provided");
         }
+
+        // Validate export access authorization
+        authorizationService.validateExportAccess(actorId, resourceId);
 
         // Enforce bounded export limit
         long count = auditRecordRepository.count();

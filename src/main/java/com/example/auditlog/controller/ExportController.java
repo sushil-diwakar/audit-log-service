@@ -37,20 +37,31 @@ public class ExportController {
     @PostMapping("/export/verify")
     public ResponseEntity<SignatureVerificationResponse> verifyExportBundle(@RequestBody ExportBundle bundle) {
         boolean sigValid = exportSignatureService.verifySignature(bundle);
-        
-        // As a prototype, we just verify signature. If a full chain verification of the subset is needed, 
-        // we could do that here. But the requirement is to verify the signature.
-        boolean valid = sigValid;
-        String message = sigValid ? "Export bundle signature is valid" : "Export bundle signature is invalid";
-        
+        boolean chainValid = chainVerificationService.verifyExportChain(bundle);
+
+        boolean valid = sigValid && chainValid;
+        String message = buildVerificationMessage(sigValid, chainValid);
+
         SignatureVerificationResponse response = SignatureVerificationResponse.builder()
                 .valid(valid)
                 .signatureValid(sigValid)
-                .chainValid(true) // Subset chain verification could be integrated here
+                .chainValid(chainValid)
                 .message(message)
                 .build();
-                
+
         return ResponseEntity.ok(response);
+    }
+
+    private String buildVerificationMessage(boolean sigValid, boolean chainValid) {
+        if (sigValid && chainValid) {
+            return "Export bundle signature and chain integrity verified successfully";
+        } else if (!sigValid && !chainValid) {
+            return "Export bundle verification failed: invalid signature and broken chain integrity";
+        } else if (!sigValid) {
+            return "Export bundle verification failed: invalid digital signature";
+        } else {
+            return "Export bundle verification failed: chain integrity violation detected";
+        }
     }
 
 }

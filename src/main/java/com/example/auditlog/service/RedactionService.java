@@ -25,11 +25,15 @@ public class RedactionService {
     private final AuditRecordRepository auditRecordRepository;
     private final ObjectMapper objectMapper;
     private final HashService hashService;
+    private final ResourceAuthorizationService authorizationService;
 
     @Transactional
     public RedactionResponse redactRecord(UUID id, RedactionRequest request) {
         AuditRecord record = auditRecordRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Audit record not found"));
+
+        // Validate resource-level authorization before redaction
+        authorizationService.validateRecordAccess(record);
 
         if (record.getStatus() == AuditRecordStatus.REDACTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Record is already redacted");

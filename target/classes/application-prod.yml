@@ -17,3 +17,5 @@ audit:
   rate-limit:
     capacity: 1000
     refill-tokens: 1000
+    export-capacity: 20
+    export-refill-tokens: 20

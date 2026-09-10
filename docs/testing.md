@@ -7,15 +7,15 @@ Command:
 
 ## 2. Test Summary
 
-* **Total**: 100
+* **Total**: 133
 * **Failures**: 0
 * **Errors**: 0
 * **Skipped**: 0
 
 ## 3. Coverage
 
-* **Instruction**: 88%
-* **Branch**: 70%
+* **Instruction**: 91%
+* **Branch**: 75%
 
 ## 4. Integrity Coverage Mapping
 

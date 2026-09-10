@@ -252,5 +252,92 @@ public class ChainVerificationService {
 
     }
 
+    /**
+     * Verifies the hash chain integrity of an exported bundle.
+     * Validates that the exported records form a valid subset chain.
+     */
+    public boolean verifyExportChain(com.example.auditlog.dto.ExportBundle bundle) {
+        if (bundle == null || bundle.getRecords() == null || bundle.getRecords().isEmpty()) {
+            return true; // Empty bundle is technically valid
+        }
+
+        List<com.example.auditlog.dto.ExportRecord> records = bundle.getRecords();
+
+        // Build index by previousHash for efficient lookup
+        Map<String, com.example.auditlog.dto.ExportRecord> byPreviousHash = new HashMap<>();
+        for (com.example.auditlog.dto.ExportRecord record : records) {
+            if (byPreviousHash.containsKey(record.getPreviousHash())) {
+                // Fork detected - two records with same previousHash
+                return false;
+            }
+            byPreviousHash.put(record.getPreviousHash(), record);
+        }
+
+        // 1. Verify each record's content hash and record hash
+        for (com.example.auditlog.dto.ExportRecord record : records) {
+            String computedRecordHash = hashService.calculateRecordHash(
+                record.getContentHash(),
+                record.getPreviousHash()
+            );
+
+            if (!computedRecordHash.equals(record.getRecordHash())) {
+                return false; // Record hash mismatch
+            }
+        }
+
+        // 2. Verify the chain forms a valid sequence
+        // Start from the first exported record
+        com.example.auditlog.dto.ExportRecord current = records.get(0);
+        Set<UUID> visited = new HashSet<>();
+        visited.add(current.getId());
+        int chainLength = 1;
+
+        // Traverse the chain
+        while (true) {
+            com.example.auditlog.dto.ExportRecord next = byPreviousHash.get(current.getRecordHash());
+            if (next == null) {
+                break; // End of exported chain
+            }
+
+            if (visited.contains(next.getId())) {
+                return false; // Cycle detected
+            }
+
+            visited.add(next.getId());
+            current = next;
+            chainLength++;
+        }
+
+        // 3. All exported records must be part of the chain
+        if (chainLength != records.size()) {
+            return false; // Disconnected records in export
+        }
+
+        // 4. Verify metadata consistency
+        com.example.auditlog.dto.ExportMetadata metadata = bundle.getMetadata();
+        if (metadata != null) {
+            if (metadata.getRecordCount() != records.size()) {
+                return false;
+            }
+
+            if (metadata.getFirstExportedRecordPreviousHash() != null
+                && !metadata.getFirstExportedRecordPreviousHash().equals(records.get(0).getPreviousHash())) {
+                return false;
+            }
+
+            if (metadata.getFirstExportedRecordHash() != null
+                && !metadata.getFirstExportedRecordHash().equals(records.get(0).getRecordHash())) {
+                return false;
+            }
+
+            if (metadata.getLastExportedRecordHash() != null
+                && !metadata.getLastExportedRecordHash().equals(records.get(records.size() - 1).getRecordHash())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
 }
 

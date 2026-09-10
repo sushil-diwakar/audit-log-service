@@ -3,6 +3,7 @@ com\example\auditlog\dto\PagedResponse$PagedResponseBuilder.class
 com\example\auditlog\exception\GlobalExceptionHandler.class
 com\example\auditlog\entity\AuditRecord$AuditRecordBuilder.class
 com\example\auditlog\repository\AuditRecordSpecification.class
+com\example\auditlog\service\ResourceAuthorizationService.class
 com\example\auditlog\dto\ExportRecord$ExportRecordBuilder.class
 com\example\auditlog\dto\SignatureVerificationResponse$SignatureVerificationResponseBuilder.class
 com\example\auditlog\dto\ExportMetadata$ExportSignature.class
@@ -47,4 +48,5 @@ com\example\auditlog\dto\ExportMetadata$ExportSignature$ExportSignatureBuilder.c
 com\example\auditlog\dto\ExportMetadata$QueryFilter$QueryFilterBuilder.class
 com\example\auditlog\dto\RedactionResponse$RedactionResponseBuilder.class
 com\example\auditlog\dto\RedactionRequest$RedactionRequestBuilder.class
+com\example\auditlog\config\SecurityConfigurationValidator.class
 com\example\auditlog\dto\SignatureVerificationResponse.class

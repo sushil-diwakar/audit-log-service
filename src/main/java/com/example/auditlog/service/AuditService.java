@@ -25,6 +25,7 @@ public class AuditService {
 
     private final AuditRecordRepository auditRecordRepository;
     private final HashService hashService;
+    private final ResourceAuthorizationService authorizationService;
 
     public static final String GENESIS_HASH = "GENESIS";
     private static final int MAX_RETRIES = 3;
@@ -32,8 +33,12 @@ public class AuditService {
     /**
      * Creates and persists a new AuditRecord based on the provided request.
      * Incorporates retry logic to handle concurrent chain append collisions.
+     * Validates that the current user owns the actor being logged.
      */
     public AuditEventResponse createAuditEvent(AuditEventRequest request) {
+        // Validate resource ownership before creating event
+        authorizationService.validateActorOwnership(request.getActorId());
+
         for (int i = 0; i < MAX_RETRIES; i++) {
             try {
                 return doCreateAuditEvent(request);
@@ -84,12 +89,17 @@ public class AuditService {
 
     /**
      * Retrieves audit events using optional filters and pagination.
+     * Validates that the current user has access to query the specified actors/resources.
      */
     @Transactional(readOnly = true)
     public PagedResponse<AuditEventResponse> getAuditEvents(
             String actorId, String resourceType, String resourceId, String eventType,
             Instant from, Instant to, int page, int size) {
-        
+
+        // Validate resource-level authorization
+        authorizationService.validateActorAccess(actorId);
+        authorizationService.validateResourceAccess(resourceType, resourceId);
+
         boolean hasResourceType = resourceType != null && !resourceType.isBlank();
         boolean hasResourceId = resourceId != null && !resourceId.isBlank();
 
