@@ -23,50 +23,46 @@ To ensure non-repudiation and authenticity of audit records when exported to ext
 
 ## Setup Instructions
 
-
-
 **Prerequisites:**
-
 - Java 21+
+- MySQL 8.0+ (for production/`prod` profile) — tests use an embedded H2 database
 
-- Maven 3.9+
-
-- MySQL 8.0+
-
-
-
-1. Create a MySQL database named audit_db.
-
-   `sql
-
+1. Create a MySQL database:
+   ```sql
    CREATE DATABASE audit_db;
+   ```
 
-   `
+2. Configure environment variables (see full reference below) and run:
+   ```bash
+   ./mvnw spring-boot:run
+   ```
 
-2. Set your environment variables (or rely on the defaults in application.yml):
-
-   `
-
-   SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/audit_db
-
-   SPRING_DATASOURCE_USERNAME=root
-
-   SPRING_DATASOURCE_PASSWORD=yourpassword
-
-   `
-
-3. Run the application:
-
-   `bash
-
-   mvn spring-boot:run
-
-   `
-
-4. Access the Swagger UI for API exploration and interactive testing:
-
+3. Access the Swagger UI:
    http://localhost:8080/swagger-ui/index.html
 
+## Environment Variable Reference
+
+All security-sensitive values **must** be supplied via environment variables; none have insecure defaults.
+
+| Variable | Profile | Required | Description |
+|----------|---------|----------|-------------|
+| `SPRING_PROFILES_ACTIVE` | — | ✅ | `dev` or `prod` |
+| `DB_URL` | both | ✅ | JDBC URL, e.g. `jdbc:mysql://localhost:3306/audit_db` |
+| `DB_USERNAME` | both | ✅ | Database username |
+| `DB_PASSWORD` | both | ✅ | Database password |
+| `DEV_USER` | dev | ✅ | HTTP Basic username for dev profile |
+| `DEV_PASSWORD` | dev | ✅ | HTTP Basic password for dev profile |
+| `OIDC_ISSUER_URI` | prod | ✅ | OAuth2 issuer URI (e.g. `https://accounts.google.com`) |
+| `PROD_ALLOWED_ORIGINS` | prod | ✅ | Comma-separated CORS allowed origins (wildcard `*` blocked) |
+| `AUDIT_SIGNATURE_PRIVATE_KEY` | both | ✅ | Base64-encoded RSA private key for export signing |
+| `AUDIT_SIGNATURE_PUBLIC_KEY` | both | ✅ | Base64-encoded RSA public key for export verification |
+| `AUDIT_SIGNATURE_KEY_ID` | both | ✅ | Key identifier included in export bundle metadata |
+| `AUDIT_REDACTION_HMAC_SECRET` | both | ✅ | HMAC-SHA256 secret for redaction integrity proofs |
+| `AUDIT_TRUSTED_PROXIES` | both | ❌ | Comma-separated trusted proxy CIDRs for `X-Forwarded-For` (empty = ignore all forwarding headers) |
+| `PORT` | both | ❌ | Server port (default: `8080`) |
+| `JPA_DDL_AUTO` | both | ❌ | Hibernate DDL mode (default: `update`) |
+| `SHOW_SQL` | both | ❌ | Log SQL statements (default: `false`) |
+| `audit.security.oauth2.audience` | prod | ✅ | Expected JWT `aud` claim value |
 
 
 ### How to test using Swagger UI

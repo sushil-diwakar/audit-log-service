@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PayloadSizeValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.validation</a> &gt; <span class="el_source">PayloadSizeValidator.java</span></div><h1>PayloadSizeValidator.java</h1><pre class="source lang-java linenums">package com.example.auditlog.validation;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
+
+import java.io.IOException;
+
+/**
+ * Enforces maximum byte size and maximum nesting depth on a JsonNode payload.
+ * Protects the service against JSON bomb attacks and oversized request bodies
+ * that could cause excessive memory allocation or processing time.
+ */
+<span class="fc" id="L15">public class PayloadSizeValidator implements ConstraintValidator&lt;ValidPayload, JsonNode&gt; {</span>
+
+    private int maxBytes;
+    private int maxDepth;
+<span class="fc" id="L19">    private final ObjectMapper mapper = new ObjectMapper();</span>
+
+    @Override
+    public void initialize(ValidPayload annotation) {
+<span class="fc" id="L23">        this.maxBytes = annotation.maxBytes();</span>
+<span class="fc" id="L24">        this.maxDepth = annotation.maxDepth();</span>
+<span class="fc" id="L25">    }</span>
+
+    @Override
+    public boolean isValid(JsonNode node, ConstraintValidatorContext context) {
+<span class="fc bfc" id="L29" title="All 2 branches covered.">        if (node == null) {</span>
+<span class="fc" id="L30">            return true; // null is handled by @NotNull separately</span>
+        }
+
+        // Check serialized size
+        try {
+<span class="fc" id="L35">            byte[] serialized = mapper.writeValueAsBytes(node);</span>
+<span class="fc bfc" id="L36" title="All 2 branches covered.">            if (serialized.length &gt; maxBytes) {</span>
+<span class="fc" id="L37">                context.disableDefaultConstraintViolation();</span>
+<span class="fc" id="L38">                context.buildConstraintViolationWithTemplate(</span>
+                        &quot;Payload size &quot; + serialized.length + &quot; bytes exceeds maximum of &quot; + maxBytes + &quot; bytes&quot;
+<span class="fc" id="L40">                ).addConstraintViolation();</span>
+<span class="fc" id="L41">                return false;</span>
+            }
+<span class="nc" id="L43">        } catch (IOException e) {</span>
+<span class="nc" id="L44">            return false;</span>
+<span class="fc" id="L45">        }</span>
+
+        // Check nesting depth
+<span class="fc" id="L48">        int depth = computeDepth(node, 0);</span>
+<span class="fc bfc" id="L49" title="All 2 branches covered.">        if (depth &gt; maxDepth) {</span>
+<span class="fc" id="L50">            context.disableDefaultConstraintViolation();</span>
+<span class="fc" id="L51">            context.buildConstraintViolationWithTemplate(</span>
+                    &quot;Payload nesting depth &quot; + depth + &quot; exceeds maximum of &quot; + maxDepth
+<span class="fc" id="L53">            ).addConstraintViolation();</span>
+<span class="fc" id="L54">            return false;</span>
+        }
+
+<span class="fc" id="L57">        return true;</span>
+    }
+
+    private int computeDepth(JsonNode node, int currentDepth) {
+<span class="fc bfc" id="L61" title="All 2 branches covered.">        if (currentDepth &gt; maxDepth) {</span>
+<span class="fc" id="L62">            return currentDepth; // short-circuit — already too deep</span>
+        }
+<span class="fc bfc" id="L64" title="All 2 branches covered.">        if (!node.isContainerNode()) {</span>
+<span class="fc" id="L65">            return currentDepth;</span>
+        }
+<span class="fc" id="L67">        int maxChildDepth = currentDepth;</span>
+<span class="fc bfc" id="L68" title="All 2 branches covered.">        for (JsonNode child : node) {</span>
+<span class="fc" id="L69">            int childDepth = computeDepth(child, currentDepth + 1);</span>
+<span class="fc bfc" id="L70" title="All 2 branches covered.">            if (childDepth &gt; maxChildDepth) {</span>
+<span class="fc" id="L71">                maxChildDepth = childDepth;</span>
+            }
+<span class="fc" id="L73">        }</span>
+<span class="fc" id="L74">        return maxChildDepth;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

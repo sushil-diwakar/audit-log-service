@@ -129,4 +129,48 @@ public class ValidationIntegrationTest {
         mockMvc.perform(post("/audit/events/" + id + "/redact").contentType("application/json").content("{\"paths\":[\"/a\", \"/a/b\"]}"))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @WithMockUser(authorities = "SCOPE_audit:write")
+    void postEvents_deeplyNestedPayload_Returns400() throws Exception {
+        // Build a payload that exceeds the maximum allowed nesting depth of 10
+        StringBuilder nested = new StringBuilder("{\"l0\":");
+        for (int i = 1; i <= 12; i++) nested.append("{\"l").append(i).append("\":");
+        nested.append("\"v\"");
+        for (int i = 0; i <= 12; i++) nested.append("}");
+
+        String body = """
+            {
+              "eventType": "TEST",
+              "actorId": "user1",
+              "resourceType": "SYS",
+              "resourceId": "res-1",
+              "payload": %s,
+              "timestamp": "2024-01-01T00:00:00Z"
+            }
+            """.formatted(nested);
+
+        mockMvc.perform(post("/audit/events").contentType("application/json").content(body))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(authorities = "SCOPE_audit:write")
+    void postEvents_oversizedPayloadBytes_Returns400() throws Exception {
+        // Build a payload that exceeds the 64 KB byte size limit
+        String bigValue = "x".repeat(70_000);
+        String body = """
+            {
+              "eventType": "TEST",
+              "actorId": "user1",
+              "resourceType": "SYS",
+              "resourceId": "res-1",
+              "payload": {"data": "%s"},
+              "timestamp": "2024-01-01T00:00:00Z"
+            }
+            """.formatted(bigValue);
+
+        mockMvc.perform(post("/audit/events").contentType("application/json").content(body))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SecurityConfigurationValidator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.config</a> &gt; <span class="el_source">SecurityConfigurationValidator.java</span></div><h1>SecurityConfigurationValidator.java</h1><pre class="source lang-java linenums">package com.example.auditlog.config;
+
+import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
+
+/**
+ * Validates that critical security configurations are properly set at startup.
+ * Fails fast if production security requirements are not met.
+ */
+<span class="fc" id="L14">@Slf4j</span>
+@Component
+@Profile(&quot;prod&quot;)
+@RequiredArgsConstructor
+public class SecurityConfigurationValidator {
+
+    @Value(&quot;${spring.security.oauth2.resourceserver.jwt.issuer-uri:}&quot;)
+    private String issuerUri;
+
+    @Value(&quot;${audit.security.oauth2.audience:}&quot;)
+    private String audience;
+
+    @Value(&quot;${audit.signature.private-key:}&quot;)
+    private String signaturePrivateKey;
+
+    @Value(&quot;${audit.signature.public-key:}&quot;)
+    private String signaturePublicKey;
+
+    @Value(&quot;${audit.signature.key-id:default-key-id}&quot;)
+    private String keyId;
+
+    @Value(&quot;${audit.cors.allowed-origins:}&quot;)
+    private String allowedOrigins;
+
+    @PostConstruct
+    public void validateSecurityConfiguration() {
+<span class="fc" id="L40">        log.info(&quot;Validating production security configuration...&quot;);</span>
+
+<span class="fc" id="L42">        StringBuilder errors = new StringBuilder();</span>
+
+        // OAuth2 OIDC Configuration
+<span class="pc bpc" id="L45" title="1 of 4 branches missed.">        if (issuerUri == null || issuerUri.isBlank()) {</span>
+<span class="fc" id="L46">            errors.append(&quot;- OIDC_ISSUER_URI must be configured for production\n&quot;);</span>
+        }
+
+<span class="pc bpc" id="L49" title="1 of 4 branches missed.">        if (audience == null || audience.isBlank()) {</span>
+<span class="fc" id="L50">            errors.append(&quot;- OIDC_AUDIENCE must be configured for production (JWT audience validation)\n&quot;);</span>
+        }
+
+        // Export Signature Configuration
+<span class="pc bpc" id="L54" title="1 of 4 branches missed.">        if (signaturePrivateKey == null || signaturePrivateKey.isBlank()) {</span>
+<span class="fc" id="L55">            errors.append(&quot;- AUDIT_SIGNATURE_PRIVATE_KEY must be configured for production (export signing)\n&quot;);</span>
+        }
+
+<span class="pc bpc" id="L58" title="1 of 4 branches missed.">        if (signaturePublicKey == null || signaturePublicKey.isBlank()) {</span>
+<span class="fc" id="L59">            errors.append(&quot;- AUDIT_SIGNATURE_PUBLIC_KEY must be configured for production (export verification)\n&quot;);</span>
+        }
+
+<span class="fc bfc" id="L62" title="All 2 branches covered.">        if (&quot;default-key-id&quot;.equals(keyId)) {</span>
+<span class="fc" id="L63">            errors.append(&quot;- AUDIT_SIGNATURE_KEY_ID must be changed from default value in production\n&quot;);</span>
+        }
+
+        // CORS Configuration
+<span class="pc bpc" id="L67" title="1 of 4 branches missed.">        if (allowedOrigins == null || allowedOrigins.isBlank()) {</span>
+<span class="fc" id="L68">            errors.append(&quot;- PROD_ALLOWED_ORIGINS must be configured for production (CORS policy)\n&quot;);</span>
+        }
+
+<span class="fc bfc" id="L71" title="All 2 branches covered.">        if (errors.length() &gt; 0) {</span>
+<span class="fc" id="L72">            String errorMessage = &quot;\n&quot; +</span>
+                    &quot;========================================\n&quot; +
+                    &quot;FATAL: Production security validation failed\n&quot; +
+                    &quot;========================================\n&quot; +
+                    &quot;The following critical security configurations are missing:\n\n&quot; +
+<span class="fc" id="L77">                    errors.toString() +</span>
+                    &quot;\nApplication startup aborted. Please configure all required security properties.\n&quot; +
+                    &quot;========================================\n&quot;;
+
+<span class="fc" id="L81">            log.error(errorMessage);</span>
+<span class="fc" id="L82">            throw new IllegalStateException(&quot;Production security configuration validation failed. Missing required security properties:\n&quot; + errors.toString());</span>
+        }
+
+<span class="fc" id="L85">        log.info(&quot;Production security configuration validation passed&quot;);</span>
+<span class="fc" id="L86">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

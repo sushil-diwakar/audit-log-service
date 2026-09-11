@@ -37,20 +37,31 @@ public class ExportController {
     @PostMapping(&quot;/export/verify&quot;)
     public ResponseEntity&lt;SignatureVerificationResponse&gt; verifyExportBundle(@RequestBody ExportBundle bundle) {
 <span class="fc" id="L39">        boolean sigValid = exportSignatureService.verifySignature(bundle);</span>
-        
-        // As a prototype, we just verify signature. If a full chain verification of the subset is needed, 
-        // we could do that here. But the requirement is to verify the signature.
-<span class="fc" id="L43">        boolean valid = sigValid;</span>
-<span class="pc bpc" id="L44" title="1 of 2 branches missed.">        String message = sigValid ? &quot;Export bundle signature is valid&quot; : &quot;Export bundle signature is invalid&quot;;</span>
-        
-<span class="fc" id="L46">        SignatureVerificationResponse response = SignatureVerificationResponse.builder()</span>
-<span class="fc" id="L47">                .valid(valid)</span>
-<span class="fc" id="L48">                .signatureValid(sigValid)</span>
-<span class="fc" id="L49">                .chainValid(true) // Subset chain verification could be integrated here</span>
-<span class="fc" id="L50">                .message(message)</span>
-<span class="fc" id="L51">                .build();</span>
-                
-<span class="fc" id="L53">        return ResponseEntity.ok(response);</span>
+<span class="fc" id="L40">        boolean chainValid = chainVerificationService.verifyExportChain(bundle);</span>
+
+<span class="pc bpc" id="L42" title="3 of 4 branches missed.">        boolean valid = sigValid &amp;&amp; chainValid;</span>
+<span class="fc" id="L43">        String message = buildVerificationMessage(sigValid, chainValid);</span>
+
+<span class="fc" id="L45">        SignatureVerificationResponse response = SignatureVerificationResponse.builder()</span>
+<span class="fc" id="L46">                .valid(valid)</span>
+<span class="fc" id="L47">                .signatureValid(sigValid)</span>
+<span class="fc" id="L48">                .chainValid(chainValid)</span>
+<span class="fc" id="L49">                .message(message)</span>
+<span class="fc" id="L50">                .build();</span>
+
+<span class="fc" id="L52">        return ResponseEntity.ok(response);</span>
+    }
+
+    private String buildVerificationMessage(boolean sigValid, boolean chainValid) {
+<span class="pc bpc" id="L56" title="3 of 4 branches missed.">        if (sigValid &amp;&amp; chainValid) {</span>
+<span class="nc" id="L57">            return &quot;Export bundle signature and chain integrity verified successfully&quot;;</span>
+<span class="pc bpc" id="L58" title="2 of 4 branches missed.">        } else if (!sigValid &amp;&amp; !chainValid) {</span>
+<span class="nc" id="L59">            return &quot;Export bundle verification failed: invalid signature and broken chain integrity&quot;;</span>
+<span class="pc bpc" id="L60" title="1 of 2 branches missed.">        } else if (!sigValid) {</span>
+<span class="fc" id="L61">            return &quot;Export bundle verification failed: invalid digital signature&quot;;</span>
+        } else {
+<span class="nc" id="L63">            return &quot;Export bundle verification failed: chain integrity violation detected&quot;;</span>
+        }
     }
 
 }

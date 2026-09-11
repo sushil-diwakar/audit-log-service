@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -35,6 +36,7 @@ public class AuditService {
      * Incorporates retry logic to handle concurrent chain append collisions.
      * Validates that the current user owns the actor being logged.
      */
+    @Transactional
     public AuditEventResponse createAuditEvent(AuditEventRequest request) {
         // Validate resource ownership before creating event
         authorizationService.validateActorOwnership(request.getActorId());
@@ -53,7 +55,14 @@ public class AuditService {
         throw new IllegalStateException("Unreachable");
     }
 
-    private AuditEventResponse doCreateAuditEvent(AuditEventRequest request) {
+    /**
+     * Each attempt runs in its own independent transaction so that a constraint
+     * violation on the previous_hash unique index is fully rolled back before we
+     * re-read the chain tip and retry. Without REQUIRES_NEW the failed flush leaves
+     * the ambient session in an undefined state.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public AuditEventResponse doCreateAuditEvent(AuditEventRequest request) {
         Instant recordTimestamp = request.getTimestamp() != null ? request.getTimestamp() : Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
 
         // 1. Construct the base record

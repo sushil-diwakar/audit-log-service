@@ -28,55 +28,60 @@ import java.util.List;
     @Value(&quot;${spring.security.oauth2.resourceserver.jwt.issuer-uri}&quot;)
     private String issuerUri;
 
-    @Value(&quot;${audit.security.oauth2.audience:}&quot;)
+    @Value(&quot;${audit.security.oauth2.audience}&quot;)
     private String audience;
+
+    @jakarta.annotation.PostConstruct
+    public void validateConfiguration() {
+<span class="pc bpc" id="L36" title="2 of 4 branches missed.">        if (issuerUri == null || issuerUri.isBlank()) {</span>
+<span class="nc" id="L37">            throw new IllegalStateException(&quot;OIDC_ISSUER_URI must be configured in production&quot;);</span>
+        }
+<span class="pc bpc" id="L39" title="2 of 4 branches missed.">        if (audience == null || audience.isBlank()) {</span>
+<span class="nc" id="L40">            throw new IllegalStateException(&quot;OIDC_AUDIENCE must be configured in production&quot;);</span>
+        }
+<span class="fc" id="L42">    }</span>
 
     @Bean
     public SecurityFilterChain prodSecurityFilterChain(HttpSecurity http) throws Exception {
-<span class="fc" id="L36">        http</span>
-<span class="fc" id="L37">            .cors(cors -&gt; cors.configurationSource(corsConfigurationSource()))</span>
-<span class="fc" id="L38">            .csrf(csrf -&gt; csrf.disable())</span>
-<span class="fc" id="L39">            .sessionManagement(session -&gt; session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
-<span class="fc" id="L40">            .authorizeHttpRequests(auth -&gt; auth</span>
-<span class="fc" id="L41">                .requestMatchers(&quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
-<span class="fc" id="L42">                .requestMatchers(org.springframework.http.HttpMethod.POST, &quot;/audit/export/verify&quot;).permitAll()</span>
-<span class="fc" id="L43">                .requestMatchers(&quot;/audit/**&quot;).authenticated()</span>
-<span class="fc" id="L44">                .anyRequest().authenticated()</span>
+<span class="fc" id="L46">        http</span>
+<span class="fc" id="L47">            .cors(cors -&gt; cors.configurationSource(corsConfigurationSource()))</span>
+<span class="fc" id="L48">            .csrf(csrf -&gt; csrf.disable())</span>
+<span class="fc" id="L49">            .sessionManagement(session -&gt; session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))</span>
+<span class="fc" id="L50">            .authorizeHttpRequests(auth -&gt; auth</span>
+<span class="fc" id="L51">                .requestMatchers(&quot;/v3/api-docs/**&quot;, &quot;/swagger-ui/**&quot;, &quot;/swagger-ui.html&quot;).permitAll()</span>
+<span class="fc" id="L52">                .requestMatchers(org.springframework.http.HttpMethod.POST, &quot;/audit/export/verify&quot;).permitAll()</span>
+<span class="fc" id="L53">                .requestMatchers(&quot;/audit/**&quot;).authenticated()</span>
+<span class="fc" id="L54">                .anyRequest().authenticated()</span>
             )
-<span class="fc" id="L46">            .oauth2ResourceServer(oauth2 -&gt; oauth2.jwt(jwt -&gt; jwt.decoder(jwtDecoder())));</span>
+<span class="fc" id="L56">            .oauth2ResourceServer(oauth2 -&gt; oauth2.jwt(jwt -&gt; jwt.decoder(jwtDecoder())));</span>
 
-<span class="fc" id="L48">        return http.build();</span>
+<span class="fc" id="L58">        return http.build();</span>
     }
 
     @Bean
     public JwtDecoder jwtDecoder() {
-<span class="nc" id="L53">        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);</span>
+<span class="nc" id="L63">        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);</span>
 
-<span class="nc" id="L55">        OAuth2TokenValidator&lt;Jwt&gt; withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);</span>
-        
-<span class="nc bnc" id="L57" title="All 4 branches missed.">        if (audience != null &amp;&amp; !audience.isBlank()) {</span>
-<span class="nc" id="L58">            OAuth2TokenValidator&lt;Jwt&gt; withAudience = new DelegatingOAuth2TokenValidator&lt;&gt;(withIssuer, new AudienceValidator(audience));</span>
-<span class="nc" id="L59">            jwtDecoder.setJwtValidator(withAudience);</span>
-<span class="nc" id="L60">        } else {</span>
-<span class="nc" id="L61">            jwtDecoder.setJwtValidator(withIssuer);</span>
-        }
+<span class="nc" id="L65">        OAuth2TokenValidator&lt;Jwt&gt; withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);</span>
+<span class="nc" id="L66">        OAuth2TokenValidator&lt;Jwt&gt; withAudience = new DelegatingOAuth2TokenValidator&lt;&gt;(withIssuer, new AudienceValidator(audience));</span>
+<span class="nc" id="L67">        jwtDecoder.setJwtValidator(withAudience);</span>
 
-<span class="nc" id="L64">        return jwtDecoder;</span>
+<span class="nc" id="L69">        return jwtDecoder;</span>
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-<span class="pc bpc" id="L69" title="1 of 4 branches missed.">        if (allowedOrigins != null &amp;&amp; allowedOrigins.contains(&quot;*&quot;)) {</span>
-<span class="fc" id="L70">            throw new IllegalArgumentException(&quot;Wildcard (*) CORS origins are strictly prohibited in the production profile.&quot;);</span>
+<span class="pc bpc" id="L74" title="1 of 4 branches missed.">        if (allowedOrigins != null &amp;&amp; allowedOrigins.contains(&quot;*&quot;)) {</span>
+<span class="fc" id="L75">            throw new IllegalArgumentException(&quot;Wildcard (*) CORS origins are strictly prohibited in the production profile.&quot;);</span>
         }
-<span class="fc" id="L72">        CorsConfiguration configuration = new CorsConfiguration();</span>
-<span class="fc" id="L73">        configuration.setAllowedOrigins(allowedOrigins);</span>
-<span class="fc" id="L74">        configuration.setAllowedMethods(List.of(&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;, &quot;OPTIONS&quot;));</span>
-<span class="fc" id="L75">        configuration.setAllowedHeaders(List.of(&quot;Authorization&quot;, &quot;Content-Type&quot;, &quot;X-Requested-With&quot;, &quot;Accept&quot;));</span>
+<span class="fc" id="L77">        CorsConfiguration configuration = new CorsConfiguration();</span>
+<span class="fc" id="L78">        configuration.setAllowedOrigins(allowedOrigins);</span>
+<span class="fc" id="L79">        configuration.setAllowedMethods(List.of(&quot;GET&quot;, &quot;POST&quot;, &quot;PUT&quot;, &quot;DELETE&quot;, &quot;OPTIONS&quot;));</span>
+<span class="fc" id="L80">        configuration.setAllowedHeaders(List.of(&quot;Authorization&quot;, &quot;Content-Type&quot;, &quot;X-Requested-With&quot;, &quot;Accept&quot;));</span>
         
-<span class="fc" id="L77">        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();</span>
-<span class="fc" id="L78">        source.registerCorsConfiguration(&quot;/**&quot;, configuration);</span>
-<span class="fc" id="L79">        return source;</span>
+<span class="fc" id="L82">        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();</span>
+<span class="fc" id="L83">        source.registerCorsConfiguration(&quot;/**&quot;, configuration);</span>
+<span class="fc" id="L84">        return source;</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

@@ -51,13 +51,24 @@ import java.util.stream.Collectors;
 <span class="fc" id="L51">        return buildResponse(HttpStatus.valueOf(ex.getStatusCode().value()), ex.getReason());</span>
     }
 
+    @ExceptionHandler(org.springframework.dao.DataAccessException.class)
+    public ResponseEntity&lt;Object&gt; handleDatabaseExceptions(org.springframework.dao.DataAccessException ex) {
+        // Fail-secure: Do not leak SQL or DB details
+<span class="fc" id="L57">        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, &quot;An internal server error occurred.&quot;);</span>
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity&lt;Object&gt; handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+<span class="fc" id="L62">        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());</span>
+    }
+
     private ResponseEntity&lt;Object&gt; buildResponse(HttpStatus status, String message) {
-<span class="fc" id="L55">        Map&lt;String, Object&gt; body = Map.of(</span>
-<span class="fc" id="L56">                &quot;status&quot;, status.value(),</span>
-<span class="fc" id="L57">                &quot;error&quot;, status.getReasonPhrase(),</span>
-<span class="pc bpc" id="L58" title="1 of 2 branches missed.">                &quot;message&quot;, message != null ? message : &quot;No details available&quot;</span>
+<span class="fc" id="L66">        Map&lt;String, Object&gt; body = Map.of(</span>
+<span class="fc" id="L67">                &quot;status&quot;, status.value(),</span>
+<span class="fc" id="L68">                &quot;error&quot;, status.getReasonPhrase(),</span>
+<span class="pc bpc" id="L69" title="1 of 2 branches missed.">                &quot;message&quot;, message != null ? message : &quot;No details available&quot;</span>
         );
-<span class="fc" id="L60">        return ResponseEntity.status(status).body(body);</span>
+<span class="fc" id="L71">        return ResponseEntity.status(status).body(body);</span>
     }
 }
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

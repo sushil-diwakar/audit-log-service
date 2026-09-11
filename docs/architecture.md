@@ -78,9 +78,9 @@ MySQL strictly enforces a unique constraint on `previous_hash`. If two threads c
 - **Error Handling**: A centralized `GlobalExceptionHandler` masks internal stack traces while providing predictable, typed JSON errors for validation faults.
 
 ## 16. Known Limitations
-- **Unbounded Memory Loading**: `ChainVerificationService` and `ExportService` currently utilize `findAll()` to build topological graph maps in memory. While acceptable for a prototype, production databases with millions of rows will crash due to Out-Of-Memory (OOM) errors. Future scaling requires recursive CTEs or bounded stream processing.
-- **Authentication (IAM)**: Excluded by prototype scope. Production requires an API Gateway and JWT validation.
+- **Unbounded Memory Loading**: `ChainVerificationService` and `ExportService` currently utilize `findAll()` to build topological graph maps in memory. While acceptable for a prototype, production databases with millions of rows will require recursive CTEs or bounded stream processing.
 - **Completeness Guarantees**: The service mathematically proves the integrity of events it *receives*, but cannot detect if an upstream application crashed or silently failed to report an access event.
+- **Per-Instance Rate Limiting**: Because rate limiting relies on `ConcurrentHashMap` and local JVM state, it is strictly a per-instance limiter. Deploying multiple instances requires an external store (e.g., Redis) for consistent rate limiting across nodes.
 
 ## 17. Security Layer
 

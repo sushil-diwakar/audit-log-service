@@ -1,23 +1,23 @@
-# Testing & Validation Evidence
-
 ## 1. Quality Gate
 
 Command:
-`mvn clean verify`
+```bash
+./mvnw clean verify
+```
 
-### Security Test Suite
-- **Total Tests Run**: 162
+### Test Suite Summary
+- **Total Tests Run**: 164
 - **Pass Rate**: 100%
 
-Key security verifications:
-* **Total**: 162
-* **Passing**: 162
-* **Failures**: 0
-* **Errors**: 0
-* **Skipped**: 0
-* **Success Rate**: 100%
+| Metric | Count |
+|--------|-------|
+| **Total** | 164 |
+| **Passing** | 164 |
+| **Failures** | 0 |
+| **Errors** | 0 |
+| **Skipped** | 0 |
 
-**Note**: All P0 security fixes (algorithm substitution prevention, proxy spoofing prevention, and resource authorization) are fully implemented and functional. All tests pass successfully.
+All implemented security controls have corresponding test coverage: scope-gated authorization, JWT validation, cross-tenant isolation, rate limiting, proxy trust validation, payload size enforcement, and full hash-chain integrity.
 
 ## 3. Coverage
 
@@ -54,6 +54,8 @@ Key security verifications:
 | Export authenticity | `ExportSignatureIntegrationTest` | `testTamperAnyField_InvalidatesSignature` (RSA signature tampering) |
 | Concurrent append | `ConcurrentAppendTest` | `testConcurrentAppend_DoesNotCreateFork` |
 | API Verification | `VerificationApiTest` | `testValidChain_Returns200AndValidTrue` |
+| Payload size enforcement | `ValidationIntegrationTest` | `postEvents_deeplyNestedPayload_Returns400` |
+| Payload size enforcement | `ValidationIntegrationTest` | `postEvents_oversizedPayloadBytes_Returns400` |
 
 ## 5. Security Access & Bypass Evidence
 

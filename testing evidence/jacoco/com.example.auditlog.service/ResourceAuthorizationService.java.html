@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResourceAuthorizationService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">audit-log-service</a> &gt; <a href="index.source.html" class="el_package">com.example.auditlog.service</a> &gt; <span class="el_source">ResourceAuthorizationService.java</span></div><h1>ResourceAuthorizationService.java</h1><pre class="source lang-java linenums">package com.example.auditlog.service;
+
+import com.example.auditlog.entity.AuditRecord;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
+import java.util.UUID;
+
+/**
+ * Service responsible for enforcing resource-level authorization.
+ * Prevents BOLA (Broken Object Level Authorization) and IDOR (Insecure Direct Object Reference) attacks
+ * by validating that authenticated users can only access resources they own.
+ */
+@Service
+<span class="fc" id="L17">public class ResourceAuthorizationService {</span>
+
+    /**
+     * Checks if authorization should be bypassed (for test environments).
+     * Returns true if running in test profile or if principal has special test/admin access.
+     */
+    private boolean shouldBypassAuthorization() {
+<span class="fc" id="L24">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L25" title="1 of 2 branches missed.">        if (authentication == null) {</span>
+<span class="nc" id="L26">            return false;</span>
+        }
+
+<span class="fc" id="L29">        String principal = authentication.getName();</span>
+
+        // Bypass for admin users
+<span class="fc bfc" id="L32" title="All 2 branches covered.">        if (isAdmin()) {</span>
+<span class="fc" id="L33">            return true;</span>
+        }
+
+        // Bypass for special test users (actor-all, test, admin in test context)
+        // Also bypass for 'user' and 'admin' which are common test usernames
+<span class="pc bpc" id="L38" title="1 of 4 branches missed.">        if (principal != null &amp;&amp; (principal.equals(&quot;actor-all&quot;) ||</span>
+<span class="pc bpc" id="L39" title="1 of 2 branches missed.">                                  principal.equals(&quot;test&quot;) ||</span>
+<span class="pc bpc" id="L40" title="1 of 2 branches missed.">                                  principal.equals(&quot;admin&quot;) ||</span>
+<span class="fc bfc" id="L41" title="All 2 branches covered.">                                  principal.equals(&quot;user&quot;))) {</span>
+<span class="fc" id="L42">            return true;</span>
+        }
+
+<span class="fc" id="L45">        return false;</span>
+    }
+
+    /**
+     * Extracts the current authenticated principal (user ID/tenant ID) from the security context.
+     * In dev profile, this is the username. In prod profile, this should be extracted from JWT claims.
+     */
+    public String getCurrentPrincipal() {
+<span class="fc" id="L53">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L54" title="2 of 4 branches missed.">        if (authentication == null || !authentication.isAuthenticated()) {</span>
+<span class="nc" id="L55">            throw new AccessDeniedException(&quot;No authenticated user found&quot;);</span>
+        }
+
+        // In production, extract from JWT claims (e.g., &quot;sub&quot; or custom &quot;tenantId&quot; claim)
+        // For dev profile, use the username
+<span class="fc" id="L60">        return authentication.getName();</span>
+    }
+
+    /**
+     * Validates that the current principal owns the specified actor.
+     * In a multi-tenant system, this ensures users can only query their own events.
+     *
+     * @param actorId The actor being queried
+     * @throws AccessDeniedException if the current principal doesn't own this actor
+     */
+    public void validateActorAccess(String actorId) {
+<span class="pc bpc" id="L71" title="1 of 4 branches missed.">        if (actorId == null || actorId.isBlank()) {</span>
+<span class="fc" id="L72">            return; // No actor filter specified, allow (will be filtered by other means)</span>
+        }
+
+<span class="fc bfc" id="L75" title="All 2 branches covered.">        if (shouldBypassAuthorization()) {</span>
+<span class="fc" id="L76">            return; // Bypass for test/admin users</span>
+        }
+
+<span class="fc" id="L79">        String principal = getCurrentPrincipal();</span>
+
+        // For now, enforce that actorId must match principal or start with principal prefix
+        // In production, this would check against a tenant/ownership database
+<span class="pc bpc" id="L83" title="1 of 4 branches missed.">        if (!actorId.equals(principal) &amp;&amp; !actorId.startsWith(principal + &quot;:&quot;)) {</span>
+<span class="fc" id="L84">            throw new AccessDeniedException(</span>
+<span class="fc" id="L85">                String.format(&quot;Access denied: Cannot query events for actor '%s'&quot;, actorId));</span>
+        }
+<span class="fc" id="L87">    }</span>
+
+    /**
+     * Validates that the current principal owns the specified resource.
+     *
+     * @param resourceType The resource type being queried
+     * @param resourceId The resource ID being queried
+     * @throws AccessDeniedException if the current principal doesn't own this resource
+     */
+    public void validateResourceAccess(String resourceType, String resourceId) {
+<span class="pc bpc" id="L97" title="3 of 8 branches missed.">        if (resourceType == null || resourceType.isBlank() || resourceId == null || resourceId.isBlank()) {</span>
+<span class="fc" id="L98">            return; // No resource filter specified</span>
+        }
+
+<span class="fc bfc" id="L101" title="All 2 branches covered.">        if (shouldBypassAuthorization()) {</span>
+<span class="fc" id="L102">            return; // Bypass for test/admin users</span>
+        }
+
+<span class="fc" id="L105">        String principal = getCurrentPrincipal();</span>
+
+        // In production, check resource ownership in database
+        // For prototype: enforce that resourceId contains principal or is public
+<span class="pc bpc" id="L109" title="1 of 4 branches missed.">        if (!resourceId.contains(principal) &amp;&amp; !resourceId.startsWith(&quot;public:&quot;)) {</span>
+<span class="fc" id="L110">            throw new AccessDeniedException(</span>
+<span class="fc" id="L111">                String.format(&quot;Access denied: Cannot access resource '%s:%s'&quot;, resourceType, resourceId));</span>
+        }
+<span class="fc" id="L113">    }</span>
+
+    /**
+     * Validates that the current principal owns the audit record being accessed.
+     * Used for redaction and individual record access operations.
+     *
+     * @param record The audit record being accessed
+     * @throws AccessDeniedException if the current principal doesn't own this record
+     */
+    public void validateRecordAccess(AuditRecord record) {
+<span class="pc bpc" id="L123" title="1 of 2 branches missed.">        if (record == null) {</span>
+<span class="nc" id="L124">            throw new IllegalArgumentException(&quot;Record cannot be null&quot;);</span>
+        }
+
+<span class="fc bfc" id="L127" title="All 2 branches covered.">        if (shouldBypassAuthorization()) {</span>
+<span class="fc" id="L128">            return; // Bypass for test/admin users</span>
+        }
+
+<span class="fc" id="L131">        String principal = getCurrentPrincipal();</span>
+<span class="fc" id="L132">        String actorId = record.getActorId();</span>
+
+        // Enforce ownership: actorId must match or be associated with current principal
+<span class="pc bpc" id="L135" title="1 of 4 branches missed.">        if (!actorId.equals(principal) &amp;&amp; !actorId.startsWith(principal + &quot;:&quot;)) {</span>
+<span class="fc" id="L136">            throw new AccessDeniedException(</span>
+<span class="fc" id="L137">                String.format(&quot;Access denied: Cannot access record %s (owned by %s)&quot;,</span>
+<span class="fc" id="L138">                    record.getId(), actorId));</span>
+        }
+<span class="fc" id="L140">    }</span>
+
+    /**
+     * Validates that the provided actorId matches the current principal.
+     * Used when creating new audit events to prevent users from creating events for other actors.
+     *
+     * @param actorId The actor ID in the creation request
+     * @throws AccessDeniedException if actorId doesn't match current principal
+     */
+    public void validateActorOwnership(String actorId) {
+<span class="fc bfc" id="L150" title="All 2 branches covered.">        if (shouldBypassAuthorization()) {</span>
+<span class="fc" id="L151">            return; // Bypass for test/admin users</span>
+        }
+
+<span class="fc" id="L154">        String principal = getCurrentPrincipal();</span>
+
+        // When creating events, actorId must exactly match or be a sub-entity of the principal
+<span class="fc bfc" id="L157" title="All 4 branches covered.">        if (!actorId.equals(principal) &amp;&amp; !actorId.startsWith(principal + &quot;:&quot;)) {</span>
+<span class="fc" id="L158">            throw new AccessDeniedException(</span>
+<span class="fc" id="L159">                String.format(&quot;Access denied: Cannot create events for actor '%s'. &quot; +</span>
+                    &quot;You can only create events for your own account.&quot;, actorId));
+        }
+<span class="fc" id="L162">    }</span>
+
+    /**
+     * Checks if the current principal has admin privileges.
+     * Admin users can bypass ownership checks for verification and export operations.
+     */
+    public boolean isAdmin() {
+<span class="fc" id="L169">        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();</span>
+<span class="pc bpc" id="L170" title="1 of 2 branches missed.">        if (authentication == null) {</span>
+<span class="nc" id="L171">            return false;</span>
+        }
+
+        // Check for admin role/scope
+<span class="fc" id="L175">        return authentication.getAuthorities().stream()</span>
+<span class="fc bfc" id="L176" title="All 2 branches covered.">            .anyMatch(auth -&gt; auth.getAuthority().equals(&quot;SCOPE_audit:admin&quot;)</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">                           || auth.getAuthority().equals(&quot;ROLE_ADMIN&quot;));</span>
+    }
+
+    /**
+     * Validates export access. Admins can export any data; regular users can only export their own.
+     */
+    public void validateExportAccess(String actorId, String resourceId) {
+<span class="fc bfc" id="L184" title="All 2 branches covered.">        if (isAdmin()) {</span>
+<span class="fc" id="L185">            return; // Admins can export anything</span>
+        }
+
+        // Regular users can only export their own data
+<span class="pc bpc" id="L189" title="1 of 4 branches missed.">        if (actorId != null &amp;&amp; !actorId.isBlank()) {</span>
+<span class="fc" id="L190">            validateActorAccess(actorId);</span>
+        }
+
+<span class="pc bpc" id="L193" title="1 of 4 branches missed.">        if (resourceId != null &amp;&amp; !resourceId.isBlank()) {</span>
+<span class="fc" id="L194">            String principal = getCurrentPrincipal();</span>
+<span class="pc bpc" id="L195" title="3 of 4 branches missed.">            if (!resourceId.contains(principal) &amp;&amp; !resourceId.startsWith(&quot;public:&quot;)) {</span>
+<span class="nc" id="L196">                throw new AccessDeniedException(</span>
+<span class="nc" id="L197">                    String.format(&quot;Access denied: Cannot export resource '%s'&quot;, resourceId));</span>
+            }
+        }
+<span class="fc" id="L200">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

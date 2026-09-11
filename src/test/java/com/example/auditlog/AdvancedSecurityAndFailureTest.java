@@ -109,21 +109,20 @@ public class AdvancedSecurityAndFailureTest {
         request.setActorId("user-1");
         request.setResourceType("AUTH");
         request.setResourceId("session-1");
-        
-        // Build a massive payload string
+
+        // Build a payload that exceeds the 64 KB size limit enforced by @ValidPayload
         StringBuilder massivePayload = new StringBuilder();
         massivePayload.append("{\"data\":\"");
-        for(int i=0; i<100000; i++) {
+        for (int i = 0; i < 100_000; i++) {
             massivePayload.append("A");
         }
         massivePayload.append("\"}");
         request.setPayload(objectMapper.readTree(massivePayload.toString()));
 
-        // Our YAML config sets max-http-form-post-size to 5MB, but that doesn't limit JSON bodies natively.
-        // Let's just verify it processes or throws safely without crashing if large, or implement a hard cap check in controller.
+        // The payload validator rejects requests whose serialized JSON exceeds 64 KB
         mockMvc.perform(post("/audit/events")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isBadRequest());
     }
 }

@@ -23,6 +23,9 @@ import jakarta.validation.ConstraintViolationException;
 import java.time.Instant;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.RequestHeader;
+import java.util.concurrent.ConcurrentHashMap;
+
 @RestController
 @RequestMapping(&quot;/audit/events&quot;)
 @RequiredArgsConstructor
@@ -30,16 +33,30 @@ import java.util.Map;
 public class AuditController {
 
     private final AuditService auditService;
+    private final ConcurrentHashMap&lt;String, ResponseEntity&lt;AuditEventResponse&gt;&gt; idempotencyCache = new ConcurrentHashMap&lt;&gt;();
 
     /**
      * Endpoint to create a new audit event.
      * Requires valid DTO fields and returns HTTP 201 Created on success.
      */
-    @PreAuthorize(&quot;hasAuthority(\'SCOPE_audit:write\')&quot;)
+    @PreAuthorize(&quot;hasAuthority('SCOPE_audit:write')&quot;)
     @PostMapping
-    public ResponseEntity&lt;AuditEventResponse&gt; createEvent(@Valid @RequestBody AuditEventRequest request) {
-<span class="fc" id="L41">        AuditEventResponse response = auditService.createAuditEvent(request);</span>
-<span class="fc" id="L42">        return ResponseEntity.status(HttpStatus.CREATED).body(response);</span>
+    public ResponseEntity&lt;AuditEventResponse&gt; createEvent(
+            @Valid @RequestBody AuditEventRequest request,
+            @RequestHeader(value = &quot;Idempotency-Key&quot;, required = false) String idempotencyKey) {
+        
+<span class="fc bfc" id="L48" title="All 4 branches covered.">        if (idempotencyKey != null &amp;&amp; idempotencyCache.containsKey(idempotencyKey)) {</span>
+<span class="fc" id="L49">            return idempotencyCache.get(idempotencyKey);</span>
+        }
+
+<span class="fc" id="L52">        AuditEventResponse response = auditService.createAuditEvent(request);</span>
+<span class="fc" id="L53">        ResponseEntity&lt;AuditEventResponse&gt; responseEntity = ResponseEntity.status(HttpStatus.CREATED).body(response);</span>
+
+<span class="fc bfc" id="L55" title="All 2 branches covered.">        if (idempotencyKey != null) {</span>
+<span class="fc" id="L56">            idempotencyCache.put(idempotencyKey, responseEntity);</span>
+        }
+
+<span class="fc" id="L59">        return responseEntity;</span>
     }
 
     /**
@@ -57,9 +74,9 @@ public class AuditController {
             @RequestParam(defaultValue = &quot;0&quot;) @Min(0) int page,
             @RequestParam(defaultValue = &quot;20&quot;) @Min(1) @Max(100) int size) {
         
-<span class="fc" id="L60">        PagedResponse&lt;AuditEventResponse&gt; response = auditService.getAuditEvents(</span>
+<span class="fc" id="L77">        PagedResponse&lt;AuditEventResponse&gt; response = auditService.getAuditEvents(</span>
                 actorId, resourceType, resourceId, eventType, from, to, page, size);
-<span class="fc" id="L62">        return ResponseEntity.ok(response);</span>
+<span class="fc" id="L79">        return ResponseEntity.ok(response);</span>
     }
 
 

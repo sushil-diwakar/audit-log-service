@@ -252,6 +252,93 @@ public class ChainVerificationService {
 
     }
 
+    /**
+     * Verifies the hash chain integrity of an exported bundle.
+     * Validates that the exported records form a valid subset chain.
+     */
+    public boolean verifyExportChain(com.example.auditlog.dto.ExportBundle bundle) {
+<span class="pc bpc" id="L260" title="4 of 6 branches missed.">        if (bundle == null || bundle.getRecords() == null || bundle.getRecords().isEmpty()) {</span>
+<span class="fc" id="L261">            return true; // Empty bundle is technically valid</span>
+        }
+
+<span class="nc" id="L264">        List&lt;com.example.auditlog.dto.ExportRecord&gt; records = bundle.getRecords();</span>
+
+        // Build index by previousHash for efficient lookup
+<span class="nc" id="L267">        Map&lt;String, com.example.auditlog.dto.ExportRecord&gt; byPreviousHash = new HashMap&lt;&gt;();</span>
+<span class="nc bnc" id="L268" title="All 2 branches missed.">        for (com.example.auditlog.dto.ExportRecord record : records) {</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">            if (byPreviousHash.containsKey(record.getPreviousHash())) {</span>
+                // Fork detected - two records with same previousHash
+<span class="nc" id="L271">                return false;</span>
+            }
+<span class="nc" id="L273">            byPreviousHash.put(record.getPreviousHash(), record);</span>
+<span class="nc" id="L274">        }</span>
+
+        // 1. Verify each record's content hash and record hash
+<span class="nc bnc" id="L277" title="All 2 branches missed.">        for (com.example.auditlog.dto.ExportRecord record : records) {</span>
+<span class="nc" id="L278">            String computedRecordHash = hashService.calculateRecordHash(</span>
+<span class="nc" id="L279">                record.getContentHash(),</span>
+<span class="nc" id="L280">                record.getPreviousHash()</span>
+            );
+
+<span class="nc bnc" id="L283" title="All 2 branches missed.">            if (!computedRecordHash.equals(record.getRecordHash())) {</span>
+<span class="nc" id="L284">                return false; // Record hash mismatch</span>
+            }
+<span class="nc" id="L286">        }</span>
+
+        // 2. Verify the chain forms a valid sequence
+        // Start from the first exported record
+<span class="nc" id="L290">        com.example.auditlog.dto.ExportRecord current = records.get(0);</span>
+<span class="nc" id="L291">        Set&lt;UUID&gt; visited = new HashSet&lt;&gt;();</span>
+<span class="nc" id="L292">        visited.add(current.getId());</span>
+<span class="nc" id="L293">        int chainLength = 1;</span>
+
+        // Traverse the chain
+        while (true) {
+<span class="nc" id="L297">            com.example.auditlog.dto.ExportRecord next = byPreviousHash.get(current.getRecordHash());</span>
+<span class="nc bnc" id="L298" title="All 2 branches missed.">            if (next == null) {</span>
+<span class="nc" id="L299">                break; // End of exported chain</span>
+            }
+
+<span class="nc bnc" id="L302" title="All 2 branches missed.">            if (visited.contains(next.getId())) {</span>
+<span class="nc" id="L303">                return false; // Cycle detected</span>
+            }
+
+<span class="nc" id="L306">            visited.add(next.getId());</span>
+<span class="nc" id="L307">            current = next;</span>
+<span class="nc" id="L308">            chainLength++;</span>
+<span class="nc" id="L309">        }</span>
+
+        // 3. All exported records must be part of the chain
+<span class="nc bnc" id="L312" title="All 2 branches missed.">        if (chainLength != records.size()) {</span>
+<span class="nc" id="L313">            return false; // Disconnected records in export</span>
+        }
+
+        // 4. Verify metadata consistency
+<span class="nc" id="L317">        com.example.auditlog.dto.ExportMetadata metadata = bundle.getMetadata();</span>
+<span class="nc bnc" id="L318" title="All 2 branches missed.">        if (metadata != null) {</span>
+<span class="nc bnc" id="L319" title="All 2 branches missed.">            if (metadata.getRecordCount() != records.size()) {</span>
+<span class="nc" id="L320">                return false;</span>
+            }
+
+<span class="nc bnc" id="L323" title="All 2 branches missed.">            if (metadata.getFirstExportedRecordPreviousHash() != null</span>
+<span class="nc bnc" id="L324" title="All 2 branches missed.">                &amp;&amp; !metadata.getFirstExportedRecordPreviousHash().equals(records.get(0).getPreviousHash())) {</span>
+<span class="nc" id="L325">                return false;</span>
+            }
+
+<span class="nc bnc" id="L328" title="All 2 branches missed.">            if (metadata.getFirstExportedRecordHash() != null</span>
+<span class="nc bnc" id="L329" title="All 2 branches missed.">                &amp;&amp; !metadata.getFirstExportedRecordHash().equals(records.get(0).getRecordHash())) {</span>
+<span class="nc" id="L330">                return false;</span>
+            }
+
+<span class="nc bnc" id="L333" title="All 2 branches missed.">            if (metadata.getLastExportedRecordHash() != null</span>
+<span class="nc bnc" id="L334" title="All 2 branches missed.">                &amp;&amp; !metadata.getLastExportedRecordHash().equals(records.get(records.size() - 1).getRecordHash())) {</span>
+<span class="nc" id="L335">                return false;</span>
+            }
+        }
+
+<span class="nc" id="L339">        return true;</span>
+    }
+
 }
 
 </pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
