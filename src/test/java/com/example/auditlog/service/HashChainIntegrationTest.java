@@ -22,10 +22,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.test.context.support.WithMockUser;
 
 @SpringBootTest(properties = {
     "DEV_USER=test", "DEV_PASSWORD=test", 
-    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL", 
+    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1", 
     "spring.datasource.username=sa", "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.password="
 })
 @ActiveProfiles("dev")
@@ -41,7 +42,7 @@ class HashChainIntegrationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -79,6 +80,9 @@ class HashChainIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testGenesisAndChaining() throws Exception {
         // 1. First record uses GENESIS
         AuditEventResponse res1 = auditService.createAuditEvent(createRequest("actor-1"));
@@ -101,6 +105,9 @@ class HashChainIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testRecordHashesAreDeterministicAndTamperEvident() throws Exception {
         auditService.createAuditEvent(createRequest("actor-1"));
         AuditRecord rec1 = repository.findAll().getFirst();
@@ -121,6 +128,9 @@ class HashChainIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testConcurrencySafeguardWithUniqueConstraint() throws InterruptedException {
         int threadCount = 3;
         ExecutorService executor = Executors.newFixedThreadPool(threadCount);
@@ -129,15 +139,18 @@ class HashChainIntegrationTest {
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger failureCount = new AtomicInteger(0);
 
+        org.springframework.security.core.context.SecurityContext context = org.springframework.security.core.context.SecurityContextHolder.getContext();
         for (int i = 0; i < threadCount; i++) {
             final int index = i;
             executor.submit(() -> {
+                org.springframework.security.core.context.SecurityContextHolder.setContext(context);
                 try {
                     auditService.createAuditEvent(createRequest("concurrent-actor-" + index));
                     successCount.incrementAndGet();
                 } catch (Exception e) {
                     failureCount.incrementAndGet();
                 } finally {
+                    org.springframework.security.core.context.SecurityContextHolder.clearContext();
                     latch.countDown();
                 }
             });
@@ -180,6 +193,9 @@ class HashChainIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testAppendOrderIsIndependentOfEventTimestamp() throws Exception {
         // Create Request A with a FUTURE timestamp (T2)
         AuditEventRequest reqA = createRequest("actor-A");

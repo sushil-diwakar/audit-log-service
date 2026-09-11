@@ -116,6 +116,7 @@ public class HashService {
                               record.getContentHash() + "|" +
                               "REDACTED|" + payloadString + "|" +
                               record.getRecordHash();
+            System.out.println("COMBINED: " + combined);
 
             javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
             javax.crypto.spec.SecretKeySpec secretKey = new javax.crypto.spec.SecretKeySpec(hmacSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");

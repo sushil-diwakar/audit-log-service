@@ -79,7 +79,7 @@ public class SecurityConfigurationValidator {
                     "========================================\n";
 
             log.error(errorMessage);
-            throw new IllegalStateException("Production security configuration validation failed. Missing required security properties.");
+            throw new IllegalStateException("Production security configuration validation failed. Missing required security properties:\n" + errors.toString());
         }
 
         log.info("Production security configuration validation passed");

@@ -33,7 +33,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@WithMockUser(authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify"})
+@WithMockUser(authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
 @TestPropertySource(properties = "spring.jpa.hibernate.ddl-auto=create-drop")
 public class RedactionIntegrationTest {
 
@@ -46,7 +46,7 @@ public class RedactionIntegrationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -78,6 +78,9 @@ public class RedactionIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testStructuredRedactionAndChainPreservation() throws Exception {
         // 1. Create a record with nested payload
         AuditEventRequest req = new AuditEventRequest();
@@ -138,6 +141,9 @@ public class RedactionIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testArrayElementRedaction() throws Exception {
         AuditEventRequest req = new AuditEventRequest();
         req.setActorId("admin");
@@ -150,6 +156,9 @@ public class RedactionIntegrationTest {
         AuditEventResponse created = auditService.createAuditEvent(req);
         UUID id = created.getId();
 
+        AuditRecord currentRec = repository.findById(id).orElseThrow();
+        System.out.println("PAYLOAD IS STRING: " + currentRec.getPayload().isTextual());
+        System.out.println("PAYLOAD STRING: " + currentRec.getPayload().toString());
         redactionService.redactRecord(id, new RedactionRequest(List.of("/cards/0/number")));
 
         AuditRecord redactedRecord = repository.findById(id).orElseThrow();
@@ -164,6 +173,9 @@ public class RedactionIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testInvalidJsonPointerSyntax() throws Exception {
         AuditEventRequest req = new AuditEventRequest();
         req.setActorId("admin");
@@ -187,6 +199,9 @@ public class RedactionIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testMissingPathAtomicity() throws Exception {
         AuditEventRequest req = new AuditEventRequest();
         req.setActorId("admin");
@@ -213,6 +228,7 @@ public class RedactionIntegrationTest {
     }
 
     @Test
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:redact"})
     void testApiLevelRedaction() throws Exception {
         AuditEventRequest req = new AuditEventRequest();
         req.setActorId("admin");

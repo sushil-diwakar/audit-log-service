@@ -49,7 +49,9 @@ class SecurityConfigurationValidatorTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("OIDC_ISSUER_URI");
+                            .extracting(Throwable::getCause)
+                            .extracting(Throwable::getMessage, org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                            .contains("OIDC_ISSUER_URI");
                 });
     }
 
@@ -68,7 +70,9 @@ class SecurityConfigurationValidatorTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("OIDC_AUDIENCE");
+                            .extracting(Throwable::getCause)
+                            .extracting(Throwable::getMessage, org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                            .contains("OIDC_AUDIENCE");
                 });
     }
 
@@ -87,7 +91,9 @@ class SecurityConfigurationValidatorTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("AUDIT_SIGNATURE_PRIVATE_KEY");
+                            .extracting(Throwable::getCause)
+                            .extracting(Throwable::getMessage, org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                            .contains("AUDIT_SIGNATURE_PRIVATE_KEY");
                 });
     }
 
@@ -106,7 +112,9 @@ class SecurityConfigurationValidatorTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("AUDIT_SIGNATURE_KEY_ID");
+                            .extracting(Throwable::getCause)
+                            .extracting(Throwable::getMessage, org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                            .contains("AUDIT_SIGNATURE_KEY_ID");
                 });
     }
 
@@ -125,7 +133,9 @@ class SecurityConfigurationValidatorTest {
                     assertThat(context).hasFailed();
                     assertThat(context.getStartupFailure())
                             .hasRootCauseInstanceOf(IllegalStateException.class)
-                            .hasMessageContaining("PROD_ALLOWED_ORIGINS");
+                            .extracting(Throwable::getCause)
+                            .extracting(Throwable::getMessage, org.assertj.core.api.InstanceOfAssertFactories.STRING)
+                            .contains("PROD_ALLOWED_ORIGINS");
                 });
     }
 

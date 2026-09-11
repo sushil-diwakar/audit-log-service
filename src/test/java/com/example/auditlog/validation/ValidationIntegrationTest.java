@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "DEV_USER=test", "DEV_PASSWORD=test", 
-    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL", 
+    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1", 
     "spring.datasource.username=sa", "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.password=",
     "OIDC_ISSUER_URI=https://mock.issuer", "OIDC_AUDIENCE=mock-audience"
 })
@@ -32,7 +32,7 @@ public class ValidationIntegrationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");

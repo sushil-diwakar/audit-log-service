@@ -57,6 +57,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, "An internal server error occurred.");
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<Object> handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
     private ResponseEntity<Object> buildResponse(HttpStatus status, String message) {
         Map<String, Object> body = Map.of(
                 "status", status.value(),

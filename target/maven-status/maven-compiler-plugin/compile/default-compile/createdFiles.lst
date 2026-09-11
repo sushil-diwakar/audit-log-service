@@ -21,6 +21,7 @@ com\example\auditlog\dto\AuditEventResponse.class
 com\example\auditlog\dto\ExportMetadata.class
 com\example\auditlog\service\RedactionService.class
 com\example\auditlog\entity\AuditRecordStatus.class
+com\example\auditlog\config\RateLimitFilter$1.class
 com\example\auditlog\config\MethodSecurityConfig.class
 com\example\auditlog\dto\ArchivalResponse$ArchivalResponseBuilder.class
 com\example\auditlog\dto\AuditEventResponse$AuditEventResponseBuilder.class

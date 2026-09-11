@@ -28,8 +28,18 @@ public class ProdSecurityConfig {
     @Value("${spring.security.oauth2.resourceserver.jwt.issuer-uri}")
     private String issuerUri;
 
-    @Value("${audit.security.oauth2.audience:}")
+    @Value("${audit.security.oauth2.audience}")
     private String audience;
+
+    @jakarta.annotation.PostConstruct
+    public void validateConfiguration() {
+        if (issuerUri == null || issuerUri.isBlank()) {
+            throw new IllegalStateException("OIDC_ISSUER_URI must be configured in production");
+        }
+        if (audience == null || audience.isBlank()) {
+            throw new IllegalStateException("OIDC_AUDIENCE must be configured in production");
+        }
+    }
 
     @Bean
     public SecurityFilterChain prodSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -53,13 +63,8 @@ public class ProdSecurityConfig {
         NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
 
         OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
-        
-        if (audience != null && !audience.isBlank()) {
-            OAuth2TokenValidator<Jwt> withAudience = new DelegatingOAuth2TokenValidator<>(withIssuer, new AudienceValidator(audience));
-            jwtDecoder.setJwtValidator(withAudience);
-        } else {
-            jwtDecoder.setJwtValidator(withIssuer);
-        }
+        OAuth2TokenValidator<Jwt> withAudience = new DelegatingOAuth2TokenValidator<>(withIssuer, new AudienceValidator(audience));
+        jwtDecoder.setJwtValidator(withAudience);
 
         return jwtDecoder;
     }

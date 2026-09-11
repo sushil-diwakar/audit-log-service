@@ -39,18 +39,10 @@ public class RetentionControllerTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
-        registry.add("DEV_USER", () -> "test");
-        registry.add("DEV_PASSWORD", () -> "test");
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
-        registry.add("spring.datasource.username", () -> "sa");
-        registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
-        registry.add("DEV_USER", () -> "test");
-        registry.add("DEV_PASSWORD", () -> "test");
-        registry.add("spring.datasource.password", () -> "test");
         registry.add("DEV_USER", () -> "test");
         registry.add("DEV_PASSWORD", () -> "test");
     }

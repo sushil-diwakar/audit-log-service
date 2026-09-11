@@ -46,6 +46,12 @@ public class AuditRecord {
     @Column(nullable = false, length = 100)
     private String resourceId;
 
+    @Column(length = 100)
+    private String tenantId;
+
+    @Column(length = 100)
+    private String ownerId;
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json")
     private JsonNode payload;

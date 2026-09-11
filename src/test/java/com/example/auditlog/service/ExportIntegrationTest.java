@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("dev")
-@WithMockUser(authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify"})
+@WithMockUser(authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
 class ExportIntegrationTest {
 
     @org.springframework.test.context.DynamicPropertySource
@@ -43,7 +43,7 @@ class ExportIntegrationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -81,13 +81,22 @@ class ExportIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testExportValidationFailure() throws Exception {
         // Missing both actorId and resourceId -> 400 Bad Request
-        mockMvc.perform(get("/audit/export"))
-                .andExpect(status().isBadRequest());
+        MvcResult result = mockMvc.perform(get("/audit/export"))
+                .andReturn();
+        System.out.println("RESPONSE: " + result.getResponse().getStatus());
+        System.out.println("RESPONSE BODY: " + result.getResponse().getContentAsString());
+        org.junit.jupiter.api.Assertions.assertEquals(400, result.getResponse().getStatus());
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testExportByActorIdAndOfflineVerification() throws Exception {
         // Create mixed records
         createRecord("userA", "RES1", "{\"data\":\"A1\"}");
@@ -165,6 +174,9 @@ class ExportIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testExportByResourceId() throws Exception {
         createRecord("userA", "RES1", "{\"data\":\"1\"}");
         createRecord("userB", "RES1", "{\"data\":\"2\"}");
@@ -200,6 +212,9 @@ class ExportIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testSparseExportBehavior() throws Exception {
         // Create 3 records, but only middle one is from actor-sparse
         AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-other"));

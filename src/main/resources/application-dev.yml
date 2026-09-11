@@ -4,8 +4,15 @@ spring:
       on-profile: dev
   security:
     user:
-      name: ${DEV_USER}
-      password: ${DEV_PASSWORD}
+      name: ${DEV_USER:test}
+      password: ${DEV_PASSWORD:test}
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    database: h2
 
 audit:
   cors:
@@ -13,3 +20,9 @@ audit:
   rate-limit:
     capacity: 100
     refill-tokens: 100
+  signature:
+    key-id: test-key-1
+    private-key: ""
+    public-key: ""
+  redaction:
+    hmac-secret: ""

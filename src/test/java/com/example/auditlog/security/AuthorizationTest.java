@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "DEV_USER=test", "DEV_PASSWORD=test", 
-    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL", 
+    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1", 
     "spring.datasource.username=sa", "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.password="
 })
 @AutoConfigureMockMvc
@@ -34,7 +34,7 @@ public class AuthorizationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -45,14 +45,14 @@ public class AuthorizationTest {
     @Autowired
     private MockMvc mockMvc;
 
-    private static final String PAYLOAD = "{\"eventType\":\"TEST\", \"actorId\":\"test\", \"resourceType\":\"SYS\", \"resourceId\":\"1\", \"payload\":{}}";
+    private static final String PAYLOAD = "{\"eventType\":\"TEST\", \"actorId\":\"u\", \"resourceType\":\"SYS\", \"resourceId\":\"public:1\", \"payload\":{}}";
 
     @Test
     void unauthenticatedAccess_Returns401() throws Exception {
         mockMvc.perform(get("/audit/events")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/audit/events").contentType(MediaType.APPLICATION_JSON).content(PAYLOAD).with(csrf())).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/audit/verify")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/audit/export?resourceId=1")).andExpect(status().isUnauthorized());
+        mockMvc.perform(get("/audit/export?resourceId=public:1")).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/audit/events/123e4567-e89b-12d3-a456-426614174000/redact").contentType(MediaType.APPLICATION_JSON).content("{\"paths\":[]}").with(csrf())).andExpect(status().isUnauthorized());
         mockMvc.perform(post("/audit/retention/archive?before=2025-01-01T00:00:00Z").with(csrf())).andExpect(status().isUnauthorized());
     }
@@ -94,11 +94,11 @@ public class AuthorizationTest {
 
     @Test
     void exportEndpoint_RequiresExportScope() throws Exception {
-        mockMvc.perform(get("/audit/export?resourceId=1")
+        mockMvc.perform(get("/audit/export?resourceId=public:1")
                 .with(user("u").authorities(new SimpleGrantedAuthority("SCOPE_audit:read"))))
                 .andExpect(status().isForbidden());
 
-        mockMvc.perform(get("/audit/export?resourceId=1")
+        mockMvc.perform(get("/audit/export?resourceId=public:1")
                 .with(user("u").authorities(new SimpleGrantedAuthority("SCOPE_audit:export"))))
                 .andExpect(status().isOk());
     }

@@ -77,8 +77,17 @@ public class ExportSignatureService {
         }
 
         ExportMetadata.ExportSignature sig = bundle.getMetadata().getSignature();
+
+        // Validate canonicalization version
         if (!CANONICAL_VERSION.equals(sig.getCanonicalizationVersion())) {
             log.warn("Unsupported canonicalization version: {}", sig.getCanonicalizationVersion());
+            return false;
+        }
+
+        // SECURITY: Validate algorithm to prevent algorithm substitution attacks
+        if (!ALGORITHM.equals(sig.getAlgorithm())) {
+            log.warn("Algorithm mismatch. Expected: {}, Got: {}. Rejecting bundle to prevent algorithm substitution attack.",
+                     ALGORITHM, sig.getAlgorithm());
             return false;
         }
 
@@ -90,10 +99,11 @@ public class ExportSignatureService {
             PublicKey publicKey = loadPublicKey(publicKeyStr);
             String canonical = canonicalizeBundle(bundle);
 
-            Signature signature = Signature.getInstance(sig.getAlgorithm());
+            // Use pinned algorithm instead of user-provided algorithm
+            Signature signature = Signature.getInstance(ALGORITHM);
             signature.initVerify(publicKey);
             signature.update(canonical.getBytes(StandardCharsets.UTF_8));
-            
+
             byte[] signatureBytes = Base64.getDecoder().decode(sig.getSignatureValue());
             return signature.verify(signatureBytes);
         } catch (Exception e) {

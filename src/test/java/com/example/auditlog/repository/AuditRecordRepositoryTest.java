@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("dev")
+@org.springframework.transaction.annotation.Transactional
 public class AuditRecordRepositoryTest {
 
     @org.springframework.test.context.DynamicPropertySource
@@ -34,7 +35,7 @@ public class AuditRecordRepositoryTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -43,7 +44,7 @@ public class AuditRecordRepositoryTest {
     }
 
     @Autowired
-    private TestEntityManager entityManager;
+    private jakarta.persistence.EntityManager entityManager;
 
     @Autowired
     private AuditRecordRepository repository;

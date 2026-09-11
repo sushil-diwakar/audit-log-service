@@ -59,6 +59,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.security.test.context.support.WithMockUser;
 
 
 
@@ -88,7 +89,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(properties = {
     "DEV_USER=test", "DEV_PASSWORD=test", 
-    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL", 
+    "spring.datasource.url=jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1", 
     "spring.datasource.username=sa", "spring.datasource.driver-class-name=org.h2.Driver", "spring.datasource.password="
 })
 @ActiveProfiles("dev")
@@ -104,7 +105,7 @@ class VerificationIntegrationTest {
         registry.add("audit.signature.private-key", () -> java.util.Base64.getEncoder().encodeToString(pair.getPrivate().getEncoded()));
         registry.add("audit.signature.key-id", () -> "test-key-dynamic");
         registry.add("audit.redaction.hmac-secret", () -> java.util.UUID.randomUUID().toString());
-        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1;MODE=MySQL");
+        registry.add("spring.datasource.url", () -> "jdbc:h2:mem:auditdb;DB_CLOSE_DELAY=-1");
         registry.add("spring.datasource.username", () -> "sa");
         registry.add("spring.datasource.password", () -> "");
         registry.add("spring.datasource.driver-class-name", () -> "org.h2.Driver");
@@ -116,6 +117,10 @@ class VerificationIntegrationTest {
 
     @Test
 
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperRedaction_ModifyPayloadAfterRedaction() throws Exception {
 
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-1"));
@@ -123,35 +128,37 @@ class VerificationIntegrationTest {
 
 
         // 1. Legitimate redaction
-
         String originalContentHash = repository.findById(evt.getId()).get().getContentHash();
-
         AuditRecord record = repository.findById(evt.getId()).get();
         String legitimateRedactionDigest = hashService.calculateRedactionDigest(record, mapper.readTree("{\"redacted\":true}"));
 
+        record.setPayload(mapper.readTree("{\"redacted\":true}"));
+        record.setStatus(com.example.auditlog.entity.AuditRecordStatus.REDACTED);
+        record.setRedactionDigest(legitimateRedactionDigest);
+        repository.saveAndFlush(record);
 
-
-        jdbcTemplate.update("UPDATE audit_records SET payload = ?, status = ?, redaction_digest = ? WHERE actor_id = ?",
-
-                "{\"redacted\":true}", "REDACTED", legitimateRedactionDigest, "actor-1");
-
-
+        // Clear Hibernate L1 cache to ensure we read from the database
+        entityManager.clear();
 
         // Confirm it passes initially
-
-        assertThat(verificationService.verifyChain().isValid()).isTrue();
-
-
+        VerificationResponse initialResponse = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
+        if (!initialResponse.isValid()) {
+            AuditRecord reloaded = repository.findById(evt.getId()).get();
+            String recalculated = hashService.calculateRedactionDigest(reloaded, reloaded.getPayload());
+            System.out.println("legitimateRedactionDigest: " + legitimateRedactionDigest);
+            System.out.println("recalculated from DB   : " + recalculated);
+            System.out.println("INITIAL VERIFICATION FAILED: " + initialResponse.getMessage() + ", " + initialResponse.getViolationType());
+        }
+        assertThat(initialResponse.isValid()).isTrue();
 
         // 2. Tamper the redacted payload
-
-        jdbcTemplate.update("UPDATE audit_records SET payload = ? WHERE actor_id = ?",
-
-                "{\"redacted\":true, \"hacker\":\"was_here\"}", "actor-1");
-
+        AuditRecord tamper = repository.findById(evt.getId()).get();
+        tamper.setPayload(mapper.readTree("{\"redacted\":true, \"hacker\":\"was_here\"}"));
+        repository.saveAndFlush(tamper);
 
 
-        VerificationResponse response = verificationService.verifyChain();
+
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
         assertThat(response.isValid()).isFalse();
 
@@ -171,6 +178,14 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperRedaction_MissingDigest_DetectsMetadataMismatch() throws Exception {
 
 
@@ -195,7 +210,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -223,6 +238,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperRedaction_InvalidDigest_DetectsMetadataMismatch() throws Exception {
 
 
@@ -247,7 +268,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -328,6 +349,8 @@ class VerificationIntegrationTest {
 
 
     private ObjectMapper mapper;
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
 
 
@@ -403,11 +426,17 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testEmptyDatabaseVerification() {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -431,6 +460,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testOneValidRecordVerification() throws Exception {
 
 
@@ -439,7 +474,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -467,6 +502,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testMultipleValidRecordsVerification() throws Exception {
 
 
@@ -487,7 +528,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -515,6 +556,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperContent_DetectsContentHashMismatch() throws Exception {
 
 
@@ -543,7 +590,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -571,6 +618,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperPreviousHash_DetectsBrokenLinkageOrMultipleGenesis() throws Exception {
 
 
@@ -603,7 +656,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -635,6 +688,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperRecordHash_DetectsRecordHashMismatch() throws Exception {
 
 
@@ -659,7 +718,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -699,6 +758,12 @@ class VerificationIntegrationTest {
 
 
 
+
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testDisconnectedOrphanRecord() throws Exception {
 
 
@@ -807,7 +872,7 @@ class VerificationIntegrationTest {
 
 
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
 
 
 
@@ -840,85 +905,105 @@ class VerificationIntegrationTest {
 
 
     @Test
+
+
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperContentHash_AfterRedaction() throws Exception {
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-1"));
         AuditRecord record = repository.findById(evt.getId()).get();
         String legitimateRedactionDigest = hashService.calculateRedactionDigest(record, mapper.readTree("{\"redacted\":true}"));
-        jdbcTemplate.update("UPDATE audit_records SET payload = ?, status = ?, redaction_digest = ? WHERE actor_id = ?",
-                "{\"redacted\":true}", "REDACTED", legitimateRedactionDigest, "actor-1");
+        AuditRecord tamper = repository.findById(evt.getId()).get(); tamper.setPayload(mapper.readTree("{\"redacted\":true}")); tamper.setStatus(com.example.auditlog.entity.AuditRecordStatus.REDACTED); tamper.setRedactionDigest(legitimateRedactionDigest); repository.saveAndFlush(tamper);
 
         jdbcTemplate.update("UPDATE audit_records SET content_hash = 'tampered' WHERE actor_id = 'actor-1'");
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isIn(ChainViolationType.INVALID_CONTENT_HASH, ChainViolationType.REDACTION_METADATA_MISMATCH, ChainViolationType.RECORD_HASH_MISMATCH);
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperRevertRedactionToActive() throws Exception {
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-1"));
         AuditRecord record = repository.findById(evt.getId()).get();
         String legitimateRedactionDigest = hashService.calculateRedactionDigest(record, mapper.readTree("{\"redacted\":true}"));
-        jdbcTemplate.update("UPDATE audit_records SET payload = ?, status = ?, redaction_digest = ? WHERE actor_id = ?",
-                "{\"redacted\":true}", "REDACTED", legitimateRedactionDigest, "actor-1");
+        AuditRecord tamper = repository.findById(evt.getId()).get(); tamper.setPayload(mapper.readTree("{\"redacted\":true}")); tamper.setStatus(com.example.auditlog.entity.AuditRecordStatus.REDACTED); tamper.setRedactionDigest(legitimateRedactionDigest); repository.saveAndFlush(tamper);
 
         jdbcTemplate.update("UPDATE audit_records SET status = 'ACTIVE' WHERE actor_id = 'actor-1'");
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testConstructMaliciousRedactionState_FailsHMAC() throws Exception {
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-1"));
         AuditRecord record = repository.findById(evt.getId()).get();
 
         String forgedDigest = "forged1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
-        jdbcTemplate.update("UPDATE audit_records SET payload = ?, status = ?, redaction_digest = ? WHERE actor_id = ?",
-                "{\"redacted\":true, \"hack\":\"success\"}", "REDACTED", forgedDigest, "actor-1");
+        AuditRecord tamper = repository.findById(evt.getId()).get();
+        tamper.setPayload(mapper.readTree("{\"redacted\":true, \"hack\":\"success\"}"));
+        tamper.setStatus(com.example.auditlog.entity.AuditRecordStatus.REDACTED);
+        tamper.setRedactionDigest(forgedDigest);
+        repository.saveAndFlush(tamper);
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isEqualTo(ChainViolationType.REDACTION_METADATA_MISMATCH);
     }
     @Test
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testTamperContent_AllFields() throws Exception {
         AuditEventResponse evt = auditService.createAuditEvent(createRequest("actor-all"));
 
         // tamper eventType
         jdbcTemplate.update("UPDATE audit_records SET event_type = 'HACKED' WHERE actor_id = 'actor-all'");
-        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        assertThat(((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
         jdbcTemplate.update("UPDATE audit_records SET event_type = 'TEST_EVENT' WHERE actor_id = 'actor-all'"); // revert
 
         // tamper resourceType
         jdbcTemplate.update("UPDATE audit_records SET resource_type = 'HACKED' WHERE actor_id = 'actor-all'");
-        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        assertThat(((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
         jdbcTemplate.update("UPDATE audit_records SET resource_type = 'SYS' WHERE actor_id = 'actor-all'"); // revert
 
         // tamper resourceId
         jdbcTemplate.update("UPDATE audit_records SET resource_id = '999' WHERE actor_id = 'actor-all'");
-        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        assertThat(((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
         jdbcTemplate.update("UPDATE audit_records SET resource_id = '1' WHERE actor_id = 'actor-all'"); // revert
 
         // tamper payload
         jdbcTemplate.update("UPDATE audit_records SET payload = '{\"action\":\"hacked\"}' WHERE actor_id = 'actor-all'");
-        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        assertThat(((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
         jdbcTemplate.update("UPDATE audit_records SET payload = '{\"action\":\"test\"}' WHERE actor_id = 'actor-all'"); // revert
 
         // tamper timestamp
         jdbcTemplate.update("UPDATE audit_records SET timestamp = ? WHERE actor_id = 'actor-all'", Instant.now().minusSeconds(3600));
-        assertThat(verificationService.verifyChain().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
+        assertThat(((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get().getViolationType()).isEqualTo(ChainViolationType.CONTENT_HASH_MISMATCH);
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testMissingGenesis_DetectsMissingGenesis() throws Exception {
         auditService.createAuditEvent(createRequest("actor-missing-gen"));
         jdbcTemplate.update("UPDATE audit_records SET previous_hash = 'NON_EXISTENT' WHERE previous_hash = 'GENESIS'");
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isIn(ChainViolationType.BROKEN_PREVIOUS_LINK, ChainViolationType.MISSING_GENESIS, ChainViolationType.RECORD_HASH_MISMATCH, ChainViolationType.DISCONNECTED_RECORD);
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testMultipleGenesis_DetectsMultipleGenesis() throws Exception {
         AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-gen-1"));
         AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-gen-2"));
@@ -929,6 +1014,9 @@ class VerificationIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testBrokenPreviousLink_DetectsBrokenLink() throws Exception {
         auditService.createAuditEvent(createRequest("actor-brk-1"));
         AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-brk-2"));
@@ -938,12 +1026,15 @@ class VerificationIntegrationTest {
         String recordHash = hashService.calculateRecordHash(contentHash, "NON_EXISTENT");
         jdbcTemplate.update("UPDATE audit_records SET content_hash = ?, record_hash = ? WHERE actor_id = 'actor-brk-2'", contentHash, recordHash);
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isIn(ChainViolationType.BROKEN_PREVIOUS_LINK, ChainViolationType.RECORD_HASH_MISMATCH, ChainViolationType.DISCONNECTED_RECORD);
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testFork_DetectsFork() throws Exception {
         AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-fork-1"));
         AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-fork-2"));
@@ -958,6 +1049,9 @@ class VerificationIntegrationTest {
     }
 
     @Test
+
+
+    @WithMockUser(username = "actor-all", authorities = {"SCOPE_audit:read", "SCOPE_audit:write", "SCOPE_audit:redact", "SCOPE_audit:archive", "SCOPE_audit:export", "SCOPE_audit:verify", "ROLE_ADMIN"})
     void testCycle_DetectsCycle() throws Exception {
         AuditEventResponse evt1 = auditService.createAuditEvent(createRequest("actor-cyc-1"));
         AuditEventResponse evt2 = auditService.createAuditEvent(createRequest("actor-cyc-2"));
@@ -970,7 +1064,7 @@ class VerificationIntegrationTest {
         String recordHash = hashService.calculateRecordHash(contentHash, record2.getRecordHash());
         jdbcTemplate.update("UPDATE audit_records SET content_hash = ?, record_hash = ? WHERE actor_id = 'actor-cyc-1'", contentHash, recordHash);
 
-        VerificationResponse response = verificationService.verifyChain();
+        VerificationResponse response = ((java.util.function.Supplier<com.example.auditlog.dto.VerificationResponse>) () -> { entityManager.clear(); return verificationService.verifyChain(); }).get();
         assertThat(response.isValid()).isFalse();
         assertThat(response.getViolationType()).isIn(ChainViolationType.CYCLE_DETECTED, ChainViolationType.MISSING_GENESIS);
     }

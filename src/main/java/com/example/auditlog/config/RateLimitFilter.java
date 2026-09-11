@@ -24,7 +24,14 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final Map<String, Bucket> buckets = new ConcurrentHashMap<>();
+    // Bounded LRU cache to prevent memory exhaustion
+    private final Map<String, Bucket> buckets = java.util.Collections.synchronizedMap(
+        new java.util.LinkedHashMap<String, Bucket>(1000, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Bucket> eldest) {
+                return size() > 10000;
+            }
+        });
 
     @Value("${audit.rate-limit.capacity:100}")
     private long capacity;
@@ -37,6 +44,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Value("${audit.rate-limit.export-refill-tokens:10}")
     private long exportRefillTokens;
+
+    @Value("${audit.rate-limit.trusted-proxies:}")
+    private String trustedProxies;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -79,16 +89,49 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip != null && !ip.isBlank()) {
-            // Take first IP in chain (original client)
-            return ip.split(",")[0].trim();
+        String remoteAddr = request.getRemoteAddr();
+
+        // SECURITY: Only trust X-Forwarded-For if request comes from a trusted proxy
+        // This prevents header spoofing attacks where attackers bypass rate limits
+        // by sending fake X-Forwarded-For headers
+        if (isTrustedProxy(remoteAddr)) {
+            String xForwardedFor = request.getHeader("X-Forwarded-For");
+            if (xForwardedFor != null && !xForwardedFor.isBlank()) {
+                // Take first IP in chain (original client)
+                return xForwardedFor.split(",")[0].trim();
+            }
+
+            String xRealIp = request.getHeader("X-Real-IP");
+            if (xRealIp != null && !xRealIp.isBlank()) {
+                return xRealIp;
+            }
         }
-        ip = request.getHeader("X-Real-IP");
-        if (ip != null && !ip.isBlank()) {
-            return ip;
+
+        // If not from trusted proxy, or no forwarding headers, use direct connection IP
+        return remoteAddr;
+    }
+
+    /**
+     * Checks if the given IP address is in the trusted proxy list.
+     * Only requests from trusted proxies are allowed to use X-Forwarded-For headers.
+     *
+     * @param ip The IP address to check
+     * @return true if the IP is a trusted proxy, false otherwise
+     */
+    private boolean isTrustedProxy(String ip) {
+        if (trustedProxies == null || trustedProxies.isBlank()) {
+            // No trusted proxies configured - don't trust any forwarding headers
+            return false;
         }
-        return request.getRemoteAddr();
+
+        String[] proxies = trustedProxies.split(",");
+        for (String proxy : proxies) {
+            if (proxy.trim().equals(ip)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private String getEndpointCategory(String uri) {
